@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
@@ -43,6 +45,9 @@ fun PartyDetailsSection(
     onDeliveryAddressChanged: (String) -> Unit
 ) {
     var partyDropdownExpanded by remember { mutableStateOf(false) }
+    var changingStore by remember { mutableStateOf(false) }
+    // Once a store is picked and has an address, collapse to one line.
+    val showCompactStore = selectedParty != null && !changingStore && partyAddress.isNotBlank()
     var moreDetailsExpanded by remember {
         mutableStateOf(
             agent.isNotBlank() || poNumber.isNotBlank() || deliveryAddress.isNotBlank()
@@ -99,6 +104,53 @@ fun PartyDetailsSection(
                 }
             }
 
+            if (showCompactStore && selectedParty != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = EmeraldSuccessBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldSuccessBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PartyAvatar(
+                            name = selectedParty.businessName,
+                            size = 40.dp,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = selectedParty.businessName,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = partyAddress,
+                                fontSize = 12.sp,
+                                color = Slate600,
+                                maxLines = 1
+                            )
+                            if (!selectedParty.isSynced) {
+                                Text(
+                                    text = "Not sent yet",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AmberWarningText
+                                )
+                            }
+                        }
+                        TextButton(onClick = { changingStore = true }) {
+                            Text("Change", fontWeight = FontWeight.Bold, color = BrandOrangeDark)
+                        }
+                    }
+                }
+            } else {
             if (selectedParty != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
@@ -147,6 +199,7 @@ fun PartyDetailsSection(
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = partyName,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     onValueChange = { query ->
                         onPartyNameChanged(query)
                         partyDropdownExpanded = true
@@ -232,6 +285,7 @@ fun PartyDetailsSection(
                                 },
                                 onClick = {
                                     onPartySelected(party)
+                                    changingStore = false
                                     partyDropdownExpanded = false
                                 }
                             )
@@ -244,6 +298,7 @@ fun PartyDetailsSection(
 
             OutlinedTextField(
                 value = partyAddress,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 onValueChange = onPartyAddressChanged,
                 label = { Text("Store address *", fontSize = 14.sp, color = Slate600) },
                 placeholder = { Text("Shop number, market, city...", color = Slate400) },
@@ -259,6 +314,7 @@ fun PartyDetailsSection(
                 ),
                 maxLines = 2
             )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -292,6 +348,7 @@ fun PartyDetailsSection(
                     ) {
                         OutlinedTextField(
                             value = agent,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             onValueChange = onAgentChanged,
                             label = { Text("Broker", fontSize = 14.sp, color = Slate600) },
                             placeholder = { Text("Broker name", color = Slate400) },
@@ -310,6 +367,7 @@ fun PartyDetailsSection(
 
                         OutlinedTextField(
                             value = poNumber,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             onValueChange = onPoNumberChanged,
                             label = { Text("PO / Ref", fontSize = 14.sp, color = Slate600) },
                             placeholder = { Text("e.g. PO-8942", color = Slate400) },
@@ -331,6 +389,7 @@ fun PartyDetailsSection(
 
                     OutlinedTextField(
                         value = deliveryAddress,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         onValueChange = onDeliveryAddressChanged,
                         label = { Text("Delivery address (optional)", fontSize = 14.sp, color = Slate600) },
                         placeholder = { Text("Godown or transport address if different", color = Slate400) },

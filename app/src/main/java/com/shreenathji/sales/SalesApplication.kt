@@ -95,11 +95,6 @@ class SalesApplication : Application() {
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
-            manager?.createNotificationChannel(
-                NotificationChannel(ALERT_CHANNEL_ID, "Tracking alerts", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Tells you when location tracking has stopped"
-                }
-            )
         }
     }
 
@@ -113,6 +108,5 @@ class SalesApplication : Application() {
 
     companion object {
         const val CHANNEL_ID = "shreenathji_tracking_channel"
-        const val ALERT_CHANNEL_ID = "shreenathji_tracking_alerts"
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +24,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
@@ -122,7 +126,7 @@ fun ItemDetailsCard(
                 if (canDelete) {
                     IconButton(
                         onClick = onDelete,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -163,14 +167,14 @@ fun ItemDetailsCard(
                             2 -> "✓ 2-Matching (Pair: 2×)"
                             else -> "+ Matching (1×)"
                         },
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = when (mult) {
                             4 -> Color(0xFF7E22CE)
                             2 -> AmberWarningText
                             else -> Slate600
                         },
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
                     )
                 }
 
@@ -182,10 +186,10 @@ fun ItemDetailsCard(
                 ) {
                     Text(
                         text = if (item.isTopBottom) "✓ Top & Bottom (Paired)" else "+ Top & Bottom",
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (item.isTopBottom) Color(0xFF3730A3) else Slate600,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
                     )
                 }
             }
@@ -195,6 +199,7 @@ fun ItemDetailsCard(
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = item.name,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     onValueChange = { query ->
                         onNameChanged(query)
                         productDropdownExpanded = true
@@ -323,172 +328,88 @@ fun ItemDetailsCard(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedTextField(
+                    OrderNumberField(
                         value = item.priceText,
                         onValueChange = onPriceChanged,
-                        label = { Text("Top Rate (₹/Mtr) *", fontSize = 13.sp, color = Slate600) },
-                        placeholder = { Text("68.00", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        label = "Top Rate (₹/Mtr) *",
+                        placeholder = "68.00",
                         modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ShadcnWhite,
-                            unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Slate200,
-                            focusedTextColor = Slate950,
-                            unfocusedTextColor = Slate950
-                        )
+                        decimal = true
                     )
-
-                    OutlinedTextField(
+                    OrderNumberField(
                         value = item.bottomPriceText,
                         onValueChange = onBottomPriceChanged,
-                        label = { Text("Bottom Rate (₹/Mtr) *", fontSize = 13.sp, color = Slate600) },
-                        placeholder = { Text("55.00", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        label = "Bottom Rate (₹/Mtr) *",
+                        placeholder = "55.00",
                         modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ShadcnWhite,
-                            unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Slate200,
-                            focusedTextColor = Slate950,
-                            unfocusedTextColor = Slate950
-                        )
+                        decimal = true
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OrderNumberField(
+                        value = item.metersPerColorText,
+                        onValueChange = onMetersPerColorChanged,
+                        label = "Top Mtr / Color *",
+                        placeholder = "250",
+                        modifier = Modifier.weight(1f)
+                    )
+                    OrderNumberField(
+                        value = item.bottomMetersPerColorText,
+                        onValueChange = onBottomMetersPerColorChanged,
+                        label = "Bottom Mtr / Color *",
+                        placeholder = "200",
+                        modifier = Modifier.weight(1f)
                     )
                 }
             } else {
-                OutlinedTextField(
-                    value = item.priceText,
-                    onValueChange = onPriceChanged,
-                    label = { Text("Rate (₹/Mtr) *", fontSize = 14.sp, color = Slate600) },
-                    placeholder = { Text("68.00", color = Slate400) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = ShadcnWhite,
-                        unfocusedContainerColor = ShadcnWhite,
-                        focusedBorderColor = BrandOrange,
-                        unfocusedBorderColor = Slate200,
-                        focusedTextColor = Slate950,
-                        unfocusedTextColor = Slate950
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OrderNumberField(
+                        value = item.priceText,
+                        onValueChange = onPriceChanged,
+                        label = "Rate (₹/Mtr) *",
+                        placeholder = "68.00",
+                        modifier = Modifier.weight(1f),
+                        decimal = true
                     )
-                )
+                    OrderNumberField(
+                        value = item.metersPerColorText,
+                        onValueChange = onMetersPerColorChanged,
+                        label = "Meters / color *",
+                        placeholder = "250",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (item.isTopBottom) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = item.metersPerColorText,
-                        onValueChange = onMetersPerColorChanged,
-                        label = { Text("Top Mtr / Color *", fontSize = 13.sp, color = Slate600) },
-                        placeholder = { Text("250", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ShadcnWhite,
-                            unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Slate200,
-                            focusedTextColor = Slate950,
-                            unfocusedTextColor = Slate950
-                        )
-                    )
-
-                    OutlinedTextField(
-                        value = item.bottomMetersPerColorText,
-                        onValueChange = onBottomMetersPerColorChanged,
-                        label = { Text("Bottom Mtr / Color *", fontSize = 13.sp, color = Slate600) },
-                        placeholder = { Text("200", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ShadcnWhite,
-                            unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Slate200,
-                            focusedTextColor = Slate950,
-                            unfocusedTextColor = Slate950
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = colorCountText,
-                    onValueChange = { raw ->
-                        colorCountText = raw
-                        if (raw.isNotBlank()) {
-                            onColorCountChanged(raw)
-                        }
-                    },
-                    label = { Text("How many colors? *", fontSize = 14.sp, color = Slate600) },
-                    placeholder = { Text("1", color = Slate400) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { focusState ->
-                            if (!focusState.isFocused) {
-                                val parsed = colorCountText.toIntOrNull()
-                                if (colorCountText.isBlank() || parsed == null || parsed < 1) {
-                                    colorCountText = item.colors.size.toString()
-                                } else {
-                                    val count = parsed.coerceIn(1, 50)
-                                    colorCountText = count.toString()
-                                    onColorCountChanged(count.toString())
-                                }
-                            }
-                        },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = ShadcnWhite,
-                        unfocusedContainerColor = ShadcnWhite,
-                        focusedBorderColor = BrandOrange,
-                        unfocusedBorderColor = Slate200,
-                        focusedTextColor = Slate950,
-                        unfocusedTextColor = Slate950
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Colors",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Slate800
                 )
-            } else {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = item.metersPerColorText,
-                        onValueChange = onMetersPerColorChanged,
-                        label = { Text("Meters per color *", fontSize = 14.sp, color = Slate600) },
-                        placeholder = { Text("e.g. 250", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = ShadcnWhite,
-                            unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
-                            unfocusedBorderColor = Slate200,
-                            focusedTextColor = Slate950,
-                            unfocusedTextColor = Slate950
-                        )
-                    )
+                    ColorStepButton(
+                        icon = Icons.Default.Remove,
+                        description = "Fewer colors",
+                        enabled = item.colors.size > 1
+                    ) { onColorCountChanged((item.colors.size - 1).toString()) }
 
                     OutlinedTextField(
                         value = colorCountText,
@@ -498,11 +419,16 @@ fun ItemDetailsCard(
                                 onColorCountChanged(raw)
                             }
                         },
-                        label = { Text("How many colors?", fontSize = 14.sp, color = Slate600) },
-                        placeholder = { Text("1", color = Slate400) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next
+                        ),
+                        textStyle = LocalTextStyle.current.copy(
+                            textAlign = TextAlign.Center,
+                            fontWeight = FontWeight.Bold
+                        ),
                         modifier = Modifier
-                            .weight(1f)
+                            .width(76.dp)
                             .onFocusChanged { focusState ->
                                 if (!focusState.isFocused) {
                                     val parsed = colorCountText.toIntOrNull()
@@ -526,6 +452,12 @@ fun ItemDetailsCard(
                             unfocusedTextColor = Slate950
                         )
                     )
+
+                    ColorStepButton(
+                        icon = Icons.Default.Add,
+                        description = "More colors",
+                        enabled = item.colors.size < 50
+                    ) { onColorCountChanged((item.colors.size + 1).toString()) }
                 }
             }
 
@@ -571,7 +503,7 @@ fun ItemDetailsCard(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSelected) BrandOrangeDark else Slate700,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                         )
                     }
                 }
@@ -667,7 +599,7 @@ fun ItemDetailsCard(
                                                 }
                                                 IconButton(
                                                     onClick = { onClearColorAttachment(colorIdx) },
-                                                    modifier = Modifier.size(28.dp)
+                                                    modifier = Modifier.size(40.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Close,
@@ -719,6 +651,7 @@ fun ItemDetailsCard(
                                     } else {
                                         OutlinedTextField(
                                             value = color.label,
+                                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                             onValueChange = { onColorLabelChanged(colorIdx, it) },
                                             placeholder = {
                                                 Text("Color ${colorIdx + 1} (optional)", color = Slate400, fontSize = 12.sp)
@@ -740,7 +673,7 @@ fun ItemDetailsCard(
                                     IconButton(
                                         onClick = { onRemoveColor(colorIdx) },
                                         enabled = item.colors.size > 1,
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(40.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
@@ -760,7 +693,7 @@ fun ItemDetailsCard(
                                         onValueChange = { onColorMeterChanged(colorIdx, it) },
                                         label = { Text("Top Mtr", fontSize = 11.sp) },
                                         placeholder = { Text("Top Mtr", color = Slate400, fontSize = 12.sp) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(10.dp),
@@ -779,7 +712,7 @@ fun ItemDetailsCard(
                                         onValueChange = { onColorBottomMeterChanged(colorIdx, it) },
                                         label = { Text("Bottom Mtr", fontSize = 11.sp) },
                                         placeholder = { Text("Bottom Mtr", color = Slate400, fontSize = 12.sp) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                         modifier = Modifier.weight(1f),
                                         singleLine = true,
                                         shape = RoundedCornerShape(10.dp),
@@ -831,7 +764,7 @@ fun ItemDetailsCard(
                                                 }
                                                 IconButton(
                                                     onClick = { onClearColorAttachment(colorIdx) },
-                                                    modifier = Modifier.size(28.dp)
+                                                    modifier = Modifier.size(40.dp)
                                                 ) {
                                                     Icon(
                                                         imageVector = Icons.Default.Close,
@@ -883,6 +816,7 @@ fun ItemDetailsCard(
                                     } else {
                                         OutlinedTextField(
                                             value = color.label,
+                                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                                             onValueChange = { onColorLabelChanged(colorIdx, it) },
                                             placeholder = {
                                                 Text("Color ${colorIdx + 1} (optional)", color = Slate400, fontSize = 12.sp)
@@ -905,7 +839,7 @@ fun ItemDetailsCard(
                                         value = color.meterText,
                                         onValueChange = { onColorMeterChanged(colorIdx, it) },
                                         placeholder = { Text("Mtr", color = Slate400, fontSize = 12.sp) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                                         modifier = Modifier.width(88.dp),
                                         singleLine = true,
                                         shape = RoundedCornerShape(10.dp),
@@ -922,7 +856,7 @@ fun ItemDetailsCard(
                                     IconButton(
                                         onClick = { onRemoveColor(colorIdx) },
                                         enabled = item.colors.size > 1,
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(40.dp)
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
@@ -1001,6 +935,67 @@ fun ItemDetailsCard(
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun OrderNumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    decimal: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, fontSize = 13.sp, color = Slate600) },
+        placeholder = { Text(placeholder, color = Slate400) },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number,
+            imeAction = ImeAction.Next
+        ),
+        modifier = modifier,
+        singleLine = true,
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = ShadcnWhite,
+            unfocusedContainerColor = ShadcnWhite,
+            focusedBorderColor = BrandOrange,
+            unfocusedBorderColor = Slate200,
+            focusedTextColor = Slate950,
+            unfocusedTextColor = Slate950
+        )
+    )
+}
+
+@Composable
+private fun ColorStepButton(
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        shape = shape,
+        color = if (enabled) BrandOrangeLight else Slate100,
+        border = BorderStroke(1.dp, if (enabled) BrandOrangeBorder else Slate200),
+        modifier = Modifier
+            .size(48.dp)
+            .clip(shape)
+            .clickable(enabled = enabled, onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = description,
+                tint = if (enabled) BrandOrangeDark else Slate400,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
