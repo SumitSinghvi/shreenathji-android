@@ -103,7 +103,7 @@ fun DailyBeatStopCard(
                                 text = "$stopNumber",
                                 color = Color.White,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.SansSerif
                             )
                         }
@@ -242,7 +242,6 @@ fun DailyBeatStopCard(
             } else {
                 ShadcnPrimaryButton(
                     onClick = onOpenVisitDialog,
-                    containerColor = Slate900,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 48.dp),

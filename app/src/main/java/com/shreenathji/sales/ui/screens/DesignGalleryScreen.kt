@@ -1,6 +1,8 @@
 package com.shreenathji.sales.ui.screens
 
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -342,7 +344,10 @@ fun DesignGalleryScreen(
                 ) {
                     OutlinedButton(
                         onClick = { viewModel.clearSelection() },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Slate200),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate900)
                     ) {
                         Text("Cancel")
                     }
@@ -351,10 +356,11 @@ fun DesignGalleryScreen(
                             val count = viewModel.commitSelectionToOrder()
                             if (count > 0) onAddToOrder()
                         },
-                        modifier = Modifier.weight(2f),
+                        modifier = Modifier.weight(2f).defaultMinSize(minHeight = 48.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = BrandOrange,
-                            contentColor = Slate950
+                            contentColor = Color.White
                         )
                     ) {
                         Icon(

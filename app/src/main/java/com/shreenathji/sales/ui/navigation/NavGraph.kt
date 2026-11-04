@@ -289,11 +289,6 @@ fun ModernFullWidthBottomNav(
                     animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
                     label = "nav_pill_width"
                 )
-                val indicatorWidth by animateDpAsState(
-                    targetValue = if (isSelected) 16.dp else 0.dp,
-                    animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
-                    label = "nav_indicator_width"
-                )
 
                 Box(
                     modifier = Modifier
@@ -340,15 +335,6 @@ fun ModernFullWidthBottomNav(
                         )
 
                         Spacer(modifier = Modifier.height(3.dp))
-
-                        // Active bottom micro-indicator
-                        Box(
-                            modifier = Modifier
-                                .height(2.5.dp)
-                                .width(indicatorWidth)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(if (isSelected) BrandOrange else Color.Transparent)
-                        )
                     }
                 }
             }

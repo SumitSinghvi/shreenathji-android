@@ -97,7 +97,7 @@ fun OrderHistoryCard(
                     Text(
                         text = order.orderNumber,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = Slate950
                     )
                     if (imageList.isNotEmpty()) {
@@ -206,7 +206,7 @@ fun OrderHistoryCard(
             Text(
                 text = dateFormatter.format(Date(order.orderTimestamp)),
                 style = MaterialTheme.typography.labelSmall,
-                color = Slate400
+                color = Slate500
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -238,7 +238,7 @@ fun OrderHistoryCard(
                     Text(
                         text = currencyFormatter.format(order.totalAmount),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
+                        fontWeight = FontWeight.Bold,
                         color = Slate950
                     )
                     Spacer(modifier = Modifier.width(4.dp))

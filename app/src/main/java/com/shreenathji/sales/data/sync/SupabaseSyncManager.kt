@@ -36,6 +36,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -702,31 +703,41 @@ class SupabaseSyncManager(
         }
     }
 
-    suspend fun syncPendingLocations() {
+    private val locationMutex = Mutex()
+
+    /**
+     * Uploads every unsynced location, oldest first, up to 50 per request. Serialized with a lock:
+     * the tracking service (after each fix) and the full sync both call this, and without the lock
+     * they could send the same rows twice.
+     */
+    suspend fun syncPendingLocations() = locationMutex.withLock {
         try {
             // Prune old logs (>48h) to prevent unbounded local DB growth
             val cutoff = System.currentTimeMillis() - (48 * 3600 * 1000L)
             locationDao.pruneOldLocations(cutoff)
 
-            val unsynced = locationDao.getUnsyncedLocations()
-            if (unsynced.isEmpty()) return
-
             val staff = authManager.getCurrentStaff()
-            val success = supabaseClient.pushLocationLogsBatch(
-                logs = unsynced,
-                salesRepId = staff?.id,
-                salesRepName = staff?.name
-            )
+            repeat(MAX_LOCATION_BATCHES_PER_RUN) {
+                val unsynced = locationDao.getUnsyncedLocations()
+                if (unsynced.isEmpty()) return@withLock
 
-            if (success) {
-                consecutiveLocationFailures = 0
-                locationDao.markLocationsSynced(unsynced.map { it.id })
-                Log.d("SupabaseSync", "Backfilled ${unsynced.size} offline location logs to Supabase in 1 batch")
-            } else {
-                consecutiveLocationFailures++
-                Log.w("SupabaseSync", "Location batch sync failed (attempt $consecutiveLocationFailures)")
-                if (consecutiveLocationFailures >= 5) {
-                    licenseSessionGuard?.validateOrWipe()
+                val success = supabaseClient.pushLocationLogsBatch(
+                    logs = unsynced,
+                    salesRepId = staff?.id,
+                    salesRepName = staff?.name
+                )
+
+                if (success) {
+                    consecutiveLocationFailures = 0
+                    locationDao.markLocationsSynced(unsynced.map { it.id })
+                    Log.d("SupabaseSync", "Uploaded ${unsynced.size} location logs in 1 batch")
+                } else {
+                    consecutiveLocationFailures++
+                    Log.w("SupabaseSync", "Location batch sync failed (attempt $consecutiveLocationFailures)")
+                    if (consecutiveLocationFailures >= 5) {
+                        licenseSessionGuard?.validateOrWipe()
+                    }
+                    return@withLock
                 }
             }
         } catch (e: Exception) {
@@ -763,6 +774,7 @@ class SupabaseSyncManager(
 
     private companion object {
         const val MIN_SYNC_INTERVAL_MS = 30_000L
+        const val MAX_LOCATION_BATCHES_PER_RUN = 5
         const val FAR_FUTURE = "9999-12-31T00:00:00+00:00"
     }
 }

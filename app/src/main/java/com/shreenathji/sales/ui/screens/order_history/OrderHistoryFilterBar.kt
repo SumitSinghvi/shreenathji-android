@@ -62,8 +62,8 @@ fun OrderHistoryFilterBar(
             val isSelected = selectedFilter == filterKey
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) Slate950 else ShadcnWhite,
-                border = BorderStroke(1.dp, if (isSelected) Slate950 else Slate200),
+                color = if (isSelected) BrandOrange else ShadcnWhite,
+                border = BorderStroke(1.dp, if (isSelected) BrandOrange else Slate200),
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .clickable { onFilterSelected(filterKey) }
@@ -73,7 +73,7 @@ fun OrderHistoryFilterBar(
                     fontSize = 12.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = if (isSelected) Color.White else Slate700,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                 )
             }
         }

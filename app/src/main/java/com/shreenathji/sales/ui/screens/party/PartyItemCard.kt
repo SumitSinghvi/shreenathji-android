@@ -115,7 +115,7 @@ fun PartyItemCard(
                 Text(
                     text = fullAddress,
                     style = MaterialTheme.typography.bodyMedium,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = Slate600,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -199,7 +199,6 @@ fun PartyItemCard(
                 } else {
                     ShadcnPrimaryButton(
                         onClick = onMarkVisited,
-                        containerColor = Slate900,
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Icon(

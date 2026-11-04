@@ -57,8 +57,7 @@ class TrackingApi(
             }
             val json = gson.toJson(dtos)
             val request = requestBuilder("location_logs", "POST", json, false)
-            val response = client.newCall(request).execute()
-            return@withContext response.isSuccessful
+            return@withContext client.newCall(request).execute().use { it.isSuccessful }
         } catch (e: Exception) {
             Log.e("TrackingApi", "Failed to push location batch to Supabase: ${e.message}")
             return@withContext false

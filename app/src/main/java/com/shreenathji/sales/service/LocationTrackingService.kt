@@ -72,7 +72,9 @@ class LocationTrackingService : Service() {
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
         val locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            // High accuracy (GPS) because party visits use a ~20 m geofence; balanced mode can be
+            // tens of meters off indoors. Switch back to PRIORITY_BALANCED_POWER_ACCURACY to save battery.
+            Priority.PRIORITY_HIGH_ACCURACY,
             INTERVAL_MILLIS
         ).apply {
             setMinUpdateIntervalMillis(FASTEST_INTERVAL_MILLIS)

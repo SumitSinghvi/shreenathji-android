@@ -152,13 +152,13 @@ fun ShadcnPrimaryButton(
     enabled: Boolean = true,
     shape: RoundedCornerShape = RoundedCornerShape(12.dp),
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 11.dp),
-    containerColor: Color = Slate950,
+    containerColor: Color = BrandOrange,
     contentColor: Color = Color.White,
     content: @Composable () -> Unit
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.defaultMinSize(minHeight = 48.dp),
         enabled = enabled,
         shape = shape,
         colors = ButtonDefaults.buttonColors(
@@ -196,7 +196,7 @@ fun ShadcnOutlineButton(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.defaultMinSize(minHeight = 44.dp),
         enabled = enabled,
         shape = shape,
         border = BorderStroke(1.dp, Slate200),
@@ -248,8 +248,8 @@ fun ShadcnHeader(
                     Column {
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
                             color = Slate950,
                             letterSpacing = (-0.3).sp
                         )
@@ -313,7 +313,7 @@ fun ShadcnSearchInput(
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = ShadcnWhite,
             unfocusedContainerColor = ShadcnWhite,
-            focusedBorderColor = Slate900,
+            focusedBorderColor = BrandOrange,
             unfocusedBorderColor = Slate200,
             focusedTextColor = Slate950,
             unfocusedTextColor = Slate950

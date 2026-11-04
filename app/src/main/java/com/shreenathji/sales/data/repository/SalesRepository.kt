@@ -173,14 +173,11 @@ class SalesRepository(
             batteryLevel = batteryLevel,
             isSynced = false
         )
-        val insertedId = locationDao.insertLocation(log)
-        val logWithId = log.copy(id = insertedId)
+        locationDao.insertLocation(log)
 
-        // Push this ping, then flush any older failed uploads only if online/valid
-        val pushed = syncManager?.pushLocationAndMark(logWithId) ?: false
-        if (pushed) {
-            syncManager?.syncPendingLocations()
-        }
+        // One serialized upload of everything unsynced (this ping plus any backlog), so the live
+        // ping and the periodic sync never send the same rows twice.
+        syncManager?.syncPendingLocations()
     }
 
     val recentLocations: Flow<List<LocationLogEntity>> = locationDao.getRecentLocations()

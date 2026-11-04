@@ -4,6 +4,11 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.shreenathji.sales.service.TrackingWatchdogWorker
+import java.util.concurrent.TimeUnit
 import com.shreenathji.sales.data.local.AppDatabase
 import com.shreenathji.sales.data.local.auth.AuthManager
 import com.shreenathji.sales.data.local.auth.LicenseSessionGuard
@@ -65,6 +70,7 @@ class SalesApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        scheduleTrackingWatchdog()
 
         // Validate license session, then sync — wipe local data if admin reset HW lock
         applicationScope.launch {
@@ -89,10 +95,24 @@ class SalesApplication : Application() {
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
+            manager?.createNotificationChannel(
+                NotificationChannel(ALERT_CHANNEL_ID, "Tracking alerts", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = "Tells you when location tracking has stopped"
+                }
+            )
         }
+    }
+
+    private fun scheduleTrackingWatchdog() {
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            TrackingWatchdogWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<TrackingWatchdogWorker>(15, TimeUnit.MINUTES).build()
+        )
     }
 
     companion object {
         const val CHANNEL_ID = "shreenathji_tracking_channel"
+        const val ALERT_CHANNEL_ID = "shreenathji_tracking_alerts"
     }
 }

@@ -168,7 +168,7 @@ fun PartyDetailsSection(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = ShadcnWhite,
                         unfocusedContainerColor = ShadcnWhite,
-                        focusedBorderColor = Slate900,
+                        focusedBorderColor = BrandOrange,
                         unfocusedBorderColor = Slate200,
                         focusedTextColor = Slate950,
                         unfocusedTextColor = Slate950
@@ -252,7 +252,7 @@ fun PartyDetailsSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = ShadcnWhite,
                     unfocusedContainerColor = ShadcnWhite,
-                    focusedBorderColor = Slate900,
+                    focusedBorderColor = BrandOrange,
                     unfocusedBorderColor = Slate200,
                     focusedTextColor = Slate950,
                     unfocusedTextColor = Slate950
@@ -301,7 +301,7 @@ fun PartyDetailsSection(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = ShadcnWhite,
                                 unfocusedContainerColor = ShadcnWhite,
-                                focusedBorderColor = Slate900,
+                                focusedBorderColor = BrandOrange,
                                 unfocusedBorderColor = Slate200,
                                 focusedTextColor = Slate950,
                                 unfocusedTextColor = Slate950
@@ -319,7 +319,7 @@ fun PartyDetailsSection(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = ShadcnWhite,
                                 unfocusedContainerColor = ShadcnWhite,
-                                focusedBorderColor = Slate900,
+                                focusedBorderColor = BrandOrange,
                                 unfocusedBorderColor = Slate200,
                                 focusedTextColor = Slate950,
                                 unfocusedTextColor = Slate950
@@ -339,7 +339,7 @@ fun PartyDetailsSection(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = ShadcnWhite,
                             unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = Slate900,
+                            focusedBorderColor = BrandOrange,
                             unfocusedBorderColor = Slate200,
                             focusedTextColor = Slate950,
                             unfocusedTextColor = Slate950

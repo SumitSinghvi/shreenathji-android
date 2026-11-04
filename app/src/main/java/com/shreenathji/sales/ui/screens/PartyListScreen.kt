@@ -147,7 +147,6 @@ fun PartyListScreen(
                 actions = {
                     ShadcnPrimaryButton(
                         onClick = { showAddPartyDialog = true },
-                        containerColor = Slate950,
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Icon(
@@ -214,19 +213,20 @@ fun PartyListScreen(
                             Text(
                                 text = routeDateLabel,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.Bold,
                                 color = Slate950,
                                 letterSpacing = (-0.2).sp
                             )
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Slate200
+                                color = BrandOrangeLight,
+                                border = BorderStroke(1.dp, BrandOrangeBorder)
                             ) {
                                 Text(
                                     text = "${filteredPlans.size} stop${if (filteredPlans.size != 1) "s" else ""}",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Slate700,
+                                    color = BrandOrangeDark,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
@@ -279,7 +279,7 @@ fun PartyListScreen(
                                 Text(
                                     text = "Also in your parties",
                                     fontSize = 14.sp,
-                                    fontWeight = FontWeight.ExtraBold,
+                                    fontWeight = FontWeight.Bold,
                                     color = Slate950,
                                     modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
                                 )
@@ -328,7 +328,7 @@ fun PartyListScreen(
                         Text(
                             text = "My parties (${filteredMyShops.size})",
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             color = Slate950,
                             letterSpacing = (-0.2).sp,
                             modifier = Modifier.padding(top = 2.dp, bottom = 4.dp)
@@ -504,7 +504,7 @@ private fun PartiesSegmentTab(
                 text = label,
                 fontSize = 13.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) Slate950 else Slate500
+                color = if (selected) BrandOrangeDark else Slate500
             )
         }
     }

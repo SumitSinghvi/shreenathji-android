@@ -54,8 +54,8 @@ fun OrderHistoryScreen(
     Scaffold(
         topBar = {
             ShadcnHeader(
-                title = "Order Bookings",
-                subtitle = if (staff != null) "${staff.name} (${staff.prefix}) • ${orders.size} orders • v${BuildConfig.VERSION_NAME}" else "${orders.size} orders • v${BuildConfig.VERSION_NAME}",
+                title = "Orders",
+                subtitle = if (staff != null) "${staff.name} (${staff.prefix}) • ${orders.size} orders" else "${orders.size} orders",
                 actions = {
                     ShadcnBadge(
                         text = "v${BuildConfig.VERSION_NAME}",

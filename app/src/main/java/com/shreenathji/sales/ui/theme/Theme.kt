@@ -11,10 +11,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val ShadcnLightColorScheme = lightColorScheme(
-    primary = Zinc900,
+    primary = BrandOrange,
     onPrimary = ShadcnWhite,
-    primaryContainer = Zinc100,
-    onPrimaryContainer = Zinc900,
+    primaryContainer = BrandOrangeLight,
+    onPrimaryContainer = BrandOrangeDark,
     secondary = Zinc700,
     onSecondary = ShadcnWhite,
     secondaryContainer = Zinc100,

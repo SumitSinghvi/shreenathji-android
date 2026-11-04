@@ -230,8 +230,8 @@ fun OrderFormScreen(
     Scaffold(
         topBar = {
             ShadcnHeader(
-                title = "New order",
-                subtitle = "Fill store and fabric details • v${BuildConfig.VERSION_NAME}",
+                title = "Book Order",
+                subtitle = "Store and fabric details",
                 actions = {
                     ShadcnBadge(
                         text = "v${BuildConfig.VERSION_NAME}",
@@ -262,7 +262,7 @@ fun OrderFormScreen(
                 .padding(padding)
                 .background(Slate50),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Status / validation banner (top)
             item {
@@ -309,7 +309,7 @@ fun OrderFormScreen(
                     Column {
                         Text(
                             text = "Fabric items",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = Slate950
                         )
@@ -445,7 +445,7 @@ fun OrderFormScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedContainerColor = ShadcnWhite,
                                     unfocusedContainerColor = ShadcnWhite,
-                                    focusedBorderColor = Slate900,
+                                    focusedBorderColor = BrandOrange,
                                     unfocusedBorderColor = Slate200,
                                     focusedTextColor = Slate950,
                                     unfocusedTextColor = Slate950
