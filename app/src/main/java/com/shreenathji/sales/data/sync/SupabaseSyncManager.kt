@@ -25,8 +25,15 @@ import com.shreenathji.sales.data.local.entities.OrderItemEntity
 import com.shreenathji.sales.data.local.entities.PartyEntity
 import com.shreenathji.sales.data.local.entities.ProductEntity
 import com.shreenathji.sales.data.remote.SupabaseClient
+import com.shreenathji.sales.data.remote.dto.DesignDto
+import com.shreenathji.sales.data.remote.dto.DesignFolderDto
+import com.shreenathji.sales.data.remote.dto.PartyDto
+import com.shreenathji.sales.data.remote.dto.ProductDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.io.File
@@ -132,96 +139,16 @@ class SupabaseSyncManager(
                 Log.e("SupabaseSync", "Staff sync failed (continuing): ${e.message}", e)
             }
 
-            // 2. Sync Parties
-            val remoteParties = supabaseClient.getParties()
-            if (remoteParties != null) {
-                val partyEntities = remoteParties.map {
-                    PartyEntity(
-                        id = it.id,
-                        businessName = it.business_name,
-                        contactPerson = it.contact_person,
-                        phone = it.phone,
-                        addressLine1 = it.address_line1,
-                        addressLine2 = it.address_line2,
-                        defaultAgent = it.default_agent,
-                        latitude = it.latitude,
-                        longitude = it.longitude,
-                        assignedRepIdsJson = if (it.assigned_rep_ids != null) gson.toJson(it.assigned_rep_ids) else null
-                    )
-                }
-                partyDao.syncReplaceParties(partyEntities)
-                val allottedCount = partyEntities.count { !it.assignedRepIdsJson.isNullOrBlank() }
-                Log.d("SupabaseSync", "Synced and replaced ${partyEntities.size} parties from Supabase ($allottedCount have assigned_rep_ids)")
-                if (partyEntities.isEmpty()) {
-                    Log.w("SupabaseSync", "Parties sync returned 0 rows — check license headers / RLS")
-                }
-                if (allottedCount > 0) {
-                    val sample = partyEntities.filter { !it.assignedRepIdsJson.isNullOrBlank() }.take(3)
-                    sample.forEach { p ->
-                        Log.d("SupabaseSync", "  Party '${p.businessName}' assigned_rep_ids = ${p.assignedRepIdsJson}")
-                    }
-                }
-            } else {
-                Log.w("SupabaseSync", "getParties returned null")
-            }
-
-            // 3. Sync Products / Qualities
-            val remoteProducts = supabaseClient.getProducts()
-            if (remoteProducts != null) {
-                val productEntities = remoteProducts.map {
-                    val mult = it.matching_multiplier ?: if (it.is_matching) 2 else 1
-                    ProductEntity(
-                        id = it.id,
-                        name = it.name,
-                        category = it.category ?: "Dying",
-                        defaultRate = it.default_rate,
-                        unit = it.unit,
-                        isMatching = mult > 1 || it.is_matching,
-                        matchingMultiplier = mult,
-                        isTopBottom = it.is_top_bottom == true,
-                        defaultRateBottom = it.default_rate_bottom
-                    )
-                }
-                productDao.syncReplaceProducts(productEntities)
-                Log.d("SupabaseSync", "Synced and replaced ${productEntities.size} products from Supabase")
-            }
-
-            // 4. Sync Designs + folders
-            val remoteFolders = supabaseClient.getDesignFolders()
-            if (remoteFolders != null) {
-                val folderEntities = remoteFolders.map {
-                    DesignFolderEntity(
-                        id = it.id,
-                        name = it.name,
-                        parentId = it.parent_id,
-                        sortOrder = it.sort_order,
-                        coverDesignId = it.cover_design_id,
-                        createdAt = it.created_at
-                    )
-                }
-                designFolderDao.syncReplaceFolders(folderEntities)
-                Log.d("SupabaseSync", "Synced and replaced ${folderEntities.size} design folders from Supabase")
-            }
-
-            val remoteDesigns = supabaseClient.getDesigns()
-            if (remoteDesigns != null) {
-                val designEntities = remoteDesigns.map {
-                    DesignEntity(
-                        id = it.id,
-                        imageUrl = it.image_url,
-                        thumbUrl = it.thumb_url,
-                        originalFilename = it.original_filename,
-                        notes = it.notes,
-                        uploadedByStaffId = it.uploaded_by_staff_id,
-                        uploadedByName = it.uploaded_by_name,
-                        capturedOn = it.captured_on,
-                        isArchived = it.is_archived,
-                        folderId = it.folder_id,
-                        createdAt = it.created_at
-                    )
-                }
-                designDao.syncReplaceDesigns(designEntities)
-                Log.d("SupabaseSync", "Synced and replaced ${designEntities.size} designs from Supabase")
+            // 2-4. Master tables (parties, products, designs, folders): delta pull when the
+            // server supports it, full pull otherwise. Independent, so run in parallel.
+            val deltaOk = isDeltaSupported()
+            coroutineScope {
+                listOf(
+                    async { syncParties(deltaOk) },
+                    async { syncProducts(deltaOk) },
+                    async { syncDesignFolders(deltaOk) },
+                    async { syncDesigns(deltaOk) }
+                ).awaitAll()
             }
 
             val remotePlans = supabaseClient.getVisitPlans()
@@ -278,6 +205,171 @@ class SupabaseSyncManager(
             Log.e("SupabaseSync", "Error syncing master data: ${e.message}", e)
         }
     }
+
+    // ---------------------------------------------------------------------------------
+    // Master-table sync: delta (updated_at cursor + tombstones) with full-pull fallback
+    // ---------------------------------------------------------------------------------
+
+    private val cursorPrefs by lazy { context.getSharedPreferences("sync_cursors", Context.MODE_PRIVATE) }
+    @Volatile private var deltaSupported = false
+
+    /**
+     * Delta needs the server migration that adds updated_at triggers + deleted_records.
+     * updated_at alone is not enough (without the trigger it is not bumped on edits), so we
+     * probe for the tombstone table, which exists only once the migration has run.
+     */
+    private suspend fun isDeltaSupported(): Boolean {
+        if (deltaSupported) return true
+        val ok = supabaseClient.masterDataApi.getTombstones("parties", FAR_FUTURE) != null
+        deltaSupported = ok
+        return ok
+    }
+
+    private suspend fun <D> pullTable(
+        table: String,
+        deltaOk: Boolean,
+        fetchFull: suspend () -> List<D>?,
+        fetchSince: suspend (String) -> List<D>?,
+        updatedAt: (D) -> String?,
+        applyFull: suspend (List<D>) -> Unit,
+        applyDelta: suspend (List<D>) -> Unit,
+        applyDeletes: suspend (List<String>) -> Unit
+    ) {
+        val updKey = "$table.updated_at"
+        val delKey = "$table.deleted_at"
+        val cursor = if (deltaOk) cursorPrefs.getString(updKey, null) else null
+
+        if (cursor == null) {
+            val rows = fetchFull() ?: return
+            applyFull(rows)
+            if (deltaOk) {
+                SyncCursor.max(rows.map(updatedAt))?.let { cursorPrefs.edit().putString(updKey, it).apply() }
+            } else {
+                cursorPrefs.edit().remove(updKey).remove(delKey).apply()
+            }
+            Log.d("SupabaseSync", "$table: full pull ${rows.size} rows")
+            return
+        }
+
+        val rows = fetchSince(cursor) ?: return
+        if (rows.isNotEmpty()) applyDelta(rows)
+        SyncCursor.max(rows.map(updatedAt))?.let { cursorPrefs.edit().putString(updKey, it).apply() }
+
+        val tombstones = supabaseClient.masterDataApi.getTombstones(table, cursorPrefs.getString(delKey, null))
+        if (!tombstones.isNullOrEmpty()) {
+            applyDeletes(tombstones.map { it.record_id })
+            SyncCursor.max(tombstones.map { it.deleted_at })?.let { cursorPrefs.edit().putString(delKey, it).apply() }
+        }
+        Log.d("SupabaseSync", "$table: delta ${rows.size} changed, ${tombstones?.size ?: 0} deleted")
+    }
+
+    private suspend fun syncParties(deltaOk: Boolean) {
+        val api = supabaseClient.masterDataApi
+        pullTable(
+            table = "parties", deltaOk = deltaOk,
+            fetchFull = { api.getPartiesFull() },
+            fetchSince = { api.getPartiesSince(it) },
+            updatedAt = { it.updated_at },
+            applyFull = { partyDao.syncReplaceParties(it.map(::toPartyEntity)) },
+            applyDelta = { partyDao.insertParties(it.map(::toPartyEntity)) },
+            applyDeletes = { partyDao.deleteSyncedPartiesByIds(it) }
+        )
+    }
+
+    private suspend fun syncProducts(deltaOk: Boolean) {
+        val api = supabaseClient.masterDataApi
+        pullTable(
+            table = "products", deltaOk = deltaOk,
+            fetchFull = { api.getProductsFull() },
+            fetchSince = { api.getProductsSince(it) },
+            updatedAt = { it.updated_at },
+            applyFull = { productDao.syncReplaceProducts(it.map(::toProductEntity)) },
+            applyDelta = { rows ->
+                // Delta includes inactive products so they can be removed from the phone.
+                val (active, inactive) = rows.partition { it.is_active }
+                if (active.isNotEmpty()) productDao.insertProducts(active.map(::toProductEntity))
+                if (inactive.isNotEmpty()) productDao.deleteProductsByIds(inactive.map { it.id })
+            },
+            applyDeletes = { productDao.deleteProductsByIds(it) }
+        )
+    }
+
+    private suspend fun syncDesignFolders(deltaOk: Boolean) {
+        val api = supabaseClient.masterDataApi
+        pullTable(
+            table = "design_folders", deltaOk = deltaOk,
+            fetchFull = { api.getDesignFoldersFull() },
+            fetchSince = { api.getDesignFoldersSince(it) },
+            updatedAt = { it.updated_at },
+            applyFull = { designFolderDao.syncReplaceFolders(it.map(::toFolderEntity)) },
+            applyDelta = { designFolderDao.insertFolders(it.map(::toFolderEntity)) },
+            applyDeletes = { designFolderDao.deleteFoldersByIds(it) }
+        )
+    }
+
+    private suspend fun syncDesigns(deltaOk: Boolean) {
+        val api = supabaseClient.masterDataApi
+        pullTable(
+            table = "designs", deltaOk = deltaOk,
+            fetchFull = { api.getDesignsFull() },
+            fetchSince = { api.getDesignsSince(it) },
+            updatedAt = { it.updated_at },
+            applyFull = { designDao.syncReplaceDesigns(it.map(::toDesignEntity)) },
+            applyDelta = { designDao.insertDesigns(it.map(::toDesignEntity)) },
+            applyDeletes = { designDao.deleteDesignsByIds(it) }
+        )
+    }
+
+    private fun toPartyEntity(it: PartyDto) = PartyEntity(
+        id = it.id,
+        businessName = it.business_name,
+        contactPerson = it.contact_person,
+        phone = it.phone,
+        addressLine1 = it.address_line1,
+        addressLine2 = it.address_line2,
+        defaultAgent = it.default_agent,
+        latitude = it.latitude,
+        longitude = it.longitude,
+        assignedRepIdsJson = if (it.assigned_rep_ids != null) gson.toJson(it.assigned_rep_ids) else null
+    )
+
+    private fun toProductEntity(it: ProductDto): ProductEntity {
+        val mult = it.matching_multiplier ?: if (it.is_matching) 2 else 1
+        return ProductEntity(
+            id = it.id,
+            name = it.name,
+            category = it.category ?: "Dying",
+            defaultRate = it.default_rate,
+            unit = it.unit,
+            isMatching = mult > 1 || it.is_matching,
+            matchingMultiplier = mult,
+            isTopBottom = it.is_top_bottom == true,
+            defaultRateBottom = it.default_rate_bottom
+        )
+    }
+
+    private fun toFolderEntity(it: DesignFolderDto) = DesignFolderEntity(
+        id = it.id,
+        name = it.name,
+        parentId = it.parent_id,
+        sortOrder = it.sort_order,
+        coverDesignId = it.cover_design_id,
+        createdAt = it.created_at
+    )
+
+    private fun toDesignEntity(it: DesignDto) = DesignEntity(
+        id = it.id,
+        imageUrl = it.image_url,
+        thumbUrl = it.thumb_url,
+        originalFilename = it.original_filename,
+        notes = it.notes,
+        uploadedByStaffId = it.uploaded_by_staff_id,
+        uploadedByName = it.uploaded_by_name,
+        capturedOn = it.captured_on,
+        isArchived = it.is_archived,
+        folderId = it.folder_id,
+        createdAt = it.created_at
+    )
 
     suspend fun syncOrdersFromSupabase() {
         try {
@@ -671,5 +763,6 @@ class SupabaseSyncManager(
 
     private companion object {
         const val MIN_SYNC_INTERVAL_MS = 30_000L
+        const val FAR_FUTURE = "9999-12-31T00:00:00+00:00"
     }
 }

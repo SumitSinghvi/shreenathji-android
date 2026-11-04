@@ -22,6 +22,9 @@ interface DesignFolderDao {
     @Query("DELETE FROM design_folders WHERE id NOT IN (:ids)")
     suspend fun deleteFoldersNotIn(ids: List<String>)
 
+    @Query("DELETE FROM design_folders WHERE id IN (:ids)")
+    suspend fun deleteFoldersByIds(ids: List<String>)
+
     @Transaction
     suspend fun syncReplaceFolders(folders: List<DesignFolderEntity>) {
         if (folders.isNotEmpty()) {

@@ -28,6 +28,9 @@ interface ProductDao {
     @Query("DELETE FROM products WHERE id NOT IN (:ids)")
     suspend fun deleteProductsNotIn(ids: List<String>)
 
+    @Query("DELETE FROM products WHERE id IN (:ids)")
+    suspend fun deleteProductsByIds(ids: List<String>)
+
     @Transaction
     suspend fun syncReplaceProducts(products: List<ProductEntity>) {
         // Upsert all remote products (INSERT OR REPLACE on primary key)

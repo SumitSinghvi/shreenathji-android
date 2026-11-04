@@ -236,7 +236,7 @@ class SupabaseClient(
     }
 
     private val ordersApi = OrdersApi(client, gson, ::buildRequest, ::getEffectiveToken)
-    private val masterDataApi = MasterDataApi(client, gson, ::buildRequest)
+    internal val masterDataApi = MasterDataApi(client, gson, ::buildRequest)
     private val trackingApi = TrackingApi(client, gson, ::buildRequest)
 
     // Master Data Operations

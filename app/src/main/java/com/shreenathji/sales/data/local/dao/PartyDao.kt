@@ -37,6 +37,9 @@ interface PartyDao {
     @Query("DELETE FROM parties WHERE id NOT IN (:ids) AND isSynced = 1")
     suspend fun deleteSyncedPartiesNotIn(ids: List<String>)
 
+    @Query("DELETE FROM parties WHERE id IN (:ids) AND isSynced = 1")
+    suspend fun deleteSyncedPartiesByIds(ids: List<String>)
+
     @Transaction
     suspend fun syncReplaceParties(parties: List<PartyEntity>) {
         // Upsert all remote parties (INSERT OR REPLACE on primary key)

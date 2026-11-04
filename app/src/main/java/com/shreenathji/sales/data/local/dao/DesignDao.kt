@@ -25,6 +25,9 @@ interface DesignDao {
     @Query("DELETE FROM designs WHERE id NOT IN (:ids)")
     suspend fun deleteDesignsNotIn(ids: List<String>)
 
+    @Query("DELETE FROM designs WHERE id IN (:ids)")
+    suspend fun deleteDesignsByIds(ids: List<String>)
+
     @Transaction
     suspend fun syncReplaceDesigns(designs: List<DesignEntity>) {
         if (designs.isNotEmpty()) {

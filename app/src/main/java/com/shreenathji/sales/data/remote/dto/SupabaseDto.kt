@@ -20,7 +20,8 @@ data class PartyDto(
     val default_agent: String? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
-    val assigned_rep_ids: List<String>? = null
+    val assigned_rep_ids: List<String>? = null,
+    val updated_at: String? = null
 )
 
 data class ProductDto(
@@ -33,7 +34,15 @@ data class ProductDto(
     val is_matching: Boolean = false,
     val matching_multiplier: Int? = 1,
     val is_top_bottom: Boolean? = false,
-    val default_rate_bottom: Double? = null
+    val default_rate_bottom: Double? = null,
+    val updated_at: String? = null
+)
+
+/** Row of public.deleted_records (server-side tombstone). */
+data class TombstoneDto(
+    val table_name: String,
+    val record_id: String,
+    val deleted_at: String
 )
 
 data class OrderDto(
