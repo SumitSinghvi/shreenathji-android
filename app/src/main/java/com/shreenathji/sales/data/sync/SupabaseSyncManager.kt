@@ -2,6 +2,7 @@ package com.shreenathji.sales.data.sync
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -27,6 +28,7 @@ import com.shreenathji.sales.data.remote.SupabaseClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -50,19 +52,35 @@ class SupabaseSyncManager(
     private val gson = Gson()
     private var consecutiveLocationFailures = 0
 
+    private val syncMutex = Mutex()
+    @Volatile private var lastSyncFinishedAt = 0L
+
+    /**
+     * Coalesced full sync. App start, tab switches and screen inits all call this;
+     * a run already in flight, or one that finished < [MIN_SYNC_INTERVAL_MS] ago, is skipped.
+     * Immediate pushes (new order/party) use the syncPending* functions directly.
+     */
     fun syncAll() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastSyncFinishedAt < MIN_SYNC_INTERVAL_MS) return
         scope.launch {
-            if (licenseSessionGuard != null && !licenseSessionGuard.validateOrWipe()) {
-                Log.w("SupabaseSync", "Skipping sync — license session invalidated")
-                return@launch
+            if (!syncMutex.tryLock()) return@launch
+            try {
+                if (licenseSessionGuard != null && !licenseSessionGuard.validateOrWipe()) {
+                    Log.w("SupabaseSync", "Skipping sync — license session invalidated")
+                    return@launch
+                }
+                supabaseClient.ensureAuthenticatedSession()
+                // Push local-only creates first so they exist on the server before pull/replace
+                syncPendingParties()
+                syncPendingOrders()
+                syncPendingVisitPlans()
+                syncPendingLocations()
+                syncMasterData()
+                lastSyncFinishedAt = SystemClock.elapsedRealtime()
+            } finally {
+                syncMutex.unlock()
             }
-            supabaseClient.ensureAuthenticatedSession()
-            // Push local-only creates first so they exist on the server before pull/replace
-            syncPendingParties()
-            syncPendingOrders()
-            syncPendingVisitPlans()
-            syncPendingLocations()
-            syncMasterData()
         }
     }
 
@@ -649,5 +667,9 @@ class SupabaseSyncManager(
             }
         }
         return success
+    }
+
+    private companion object {
+        const val MIN_SYNC_INTERVAL_MS = 30_000L
     }
 }
