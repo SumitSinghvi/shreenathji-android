@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">SHIVAAB Sales</string>
+    <string name="tracking_notification_title">SHIVAAB (By Shree Nath Ji)</string>
+    <string name="tracking_notification_text">Field Sales portal active</string>
+</resources>

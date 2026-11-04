@@ -1,0 +1,12 @@
+build/
+.gradle/
+.idea/
+.codegraph/
+local.properties
+*.db
+*.db-shm
+*.db-wal
+*.apk
+*.jks
+*.keystore
+.DS_Store
