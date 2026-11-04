@@ -1,12 +1,16 @@
 package com.shreenathji.sales.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Ignore
 import androidx.room.PrimaryKey
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
-@Entity(tableName = "parties")
+@Entity(
+    tableName = "parties",
+    indices = [Index(value = ["isSynced"])]
+)
 data class PartyEntity(
     @PrimaryKey
     val id: String,

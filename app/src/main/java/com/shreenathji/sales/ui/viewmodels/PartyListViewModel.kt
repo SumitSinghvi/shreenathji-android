@@ -15,10 +15,13 @@ import com.shreenathji.sales.data.local.entities.DailyVisitPlanEntity
 import com.shreenathji.sales.data.local.entities.PartyEntity
 import com.shreenathji.sales.data.repository.SalesRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,7 +31,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-@OptIn(ExperimentalCoroutinesApi::class)
+private const val SEARCH_DEBOUNCE_MS = 250L
+
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class PartyListViewModel(
     private val repository: SalesRepository,
     private val authManager: AuthManager
@@ -83,6 +88,8 @@ class PartyListViewModel(
         )
 
     val parties: StateFlow<List<PartyEntity>> = _searchQuery
+        .debounce { query -> if (query.isEmpty()) 0L else SEARCH_DEBOUNCE_MS }
+        .distinctUntilChanged()
         .flatMapLatest { query ->
             repository.searchParties(query)
         }

@@ -1,9 +1,13 @@
 package com.shreenathji.sales.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "orders")
+@Entity(
+    tableName = "orders",
+    indices = [Index(value = ["orderTimestamp"]), Index(value = ["isSynced"])]
+)
 data class OrderEntity(
     @PrimaryKey
     val id: String,

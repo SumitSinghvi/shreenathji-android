@@ -1,9 +1,13 @@
 package com.shreenathji.sales.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "daily_visit_plans")
+@Entity(
+    tableName = "daily_visit_plans",
+    indices = [Index(value = ["planDate"]), Index(value = ["partyId", "planDate"]), Index(value = ["isSynced"])]
+)
 data class DailyVisitPlanEntity(
     @PrimaryKey
     val id: String,

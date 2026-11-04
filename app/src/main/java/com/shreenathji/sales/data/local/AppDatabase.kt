@@ -34,7 +34,7 @@ import kotlinx.coroutines.CoroutineScope
         DesignEntity::class,
         DesignFolderEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -186,6 +186,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_visit_plans_planDate` ON `daily_visit_plans` (`planDate`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_visit_plans_partyId_planDate` ON `daily_visit_plans` (`partyId`, `planDate`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_daily_visit_plans_isSynced` ON `daily_visit_plans` (`isSynced`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_orderTimestamp` ON `orders` (`orderTimestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_isSynced` ON `orders` (`isSynced`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_location_logs_isSynced_timestamp` ON `location_logs` (`isSynced`, `timestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_parties_isSynced` ON `parties` (`isSynced`)")
+            }
+        }
+
         fun getDatabase(context: Context, scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -193,7 +205,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "shreenathji_sales.db"
                 )
-                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
+                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

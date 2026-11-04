@@ -1,9 +1,13 @@
 package com.shreenathji.sales.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "location_logs")
+@Entity(
+    tableName = "location_logs",
+    indices = [Index(value = ["isSynced", "timestamp"])]
+)
 data class LocationLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
