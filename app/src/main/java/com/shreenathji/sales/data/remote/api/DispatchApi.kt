@@ -32,7 +32,8 @@ class DispatchApi(
         val endpoint = "dispatches?dispatched_by=eq.$who" +
             "&select=id,order_id,dispatched_at,lr_number,transporter,vehicle_no,notes,photo_urls," +
             "dispatch_items(id,order_item_id,product_name,component,ordered_meter,actual_meter,notes)," +
-            "orders!inner(order_number,party_name,order_status,image_urls)" +
+            "orders!inner(order_number,party_name,order_status,image_urls,agent,po_number,delivery_address,notes," +
+            "order_items(id,product_name,meter,component,notes,image_url,is_matching,multiplier,cut_meter))" +
             "&orders.order_status=in.(DISPATCHED,DELIVERED)" + // reverted orders keep their dispatches row; hide them
             "&order=dispatched_at.desc&limit=200"
         fetchList(endpoint, object : TypeToken<List<DispatchRecordDto>>() {})

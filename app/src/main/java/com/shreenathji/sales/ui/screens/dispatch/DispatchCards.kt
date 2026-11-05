@@ -238,6 +238,8 @@ internal fun DispatchedCard(
                 )
             }
 
+            d.orders?.let { OrderInfoBlock(it.po_number, it.agent, it.delivery_address, it.notes) }
+
             HorizontalDivider(color = Slate100, thickness = 1.dp)
 
             // Fabric Items (Ordered -> Actual with variance)
@@ -245,16 +247,23 @@ internal fun DispatchedCard(
                 items.forEach { item ->
                     val (cleanName, tag) = cleanItem(item.product_name, item.component)
                     val diff = item.actual_meter - item.ordered_meter
+                    val orderItem = d.orders?.order_items?.find { it.id == item.order_item_id }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Text(cleanName, fontSize = 12.sp, color = Slate700, maxLines = 1)
-                            tag?.let {
-                                Text(" ($it)", fontSize = 11.sp, color = Slate500)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(cleanName, fontSize = 12.sp, color = Slate700, maxLines = 1)
+                                tag?.let {
+                                    Text(" ($it)", fontSize = 11.sp, color = Slate500)
+                                }
+                            }
+                            orderItem?.let { ItemDetails(it) }
+                            item.notes?.takeIf { it.isNotBlank() }?.let {
+                                Text("Dispatch note: $it", fontSize = 11.sp, color = Slate500)
                             }
                         }
                         Text(

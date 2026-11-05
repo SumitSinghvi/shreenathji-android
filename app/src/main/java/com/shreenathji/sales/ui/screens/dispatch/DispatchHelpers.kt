@@ -110,12 +110,16 @@ internal fun ItemDetails(item: DispatchOrderItemDto) {
 
 /** Order-level details (no rates): PO, agent, delivery address, order notes. */
 @Composable
-internal fun OrderInfoBlock(order: DispatchOrderDto) {
+internal fun OrderInfoBlock(order: DispatchOrderDto) =
+    OrderInfoBlock(order.po_number, order.agent, order.delivery_address, order.notes)
+
+@Composable
+internal fun OrderInfoBlock(poNumber: String?, agent: String?, deliveryAddress: String?, notes: String?) {
     val fields = listOf(
-        "PO" to order.po_number,
-        "Agent" to order.agent,
-        "Deliver to" to order.delivery_address,
-        "Order notes" to order.notes
+        "PO" to poNumber,
+        "Agent" to agent,
+        "Deliver to" to deliveryAddress,
+        "Order notes" to notes
     ).filter { !it.second.isNullOrBlank() }
     if (fields.isEmpty()) return
     Column(

@@ -44,7 +44,12 @@ data class DispatchOrderRefDto(
     val order_number: String,
     val party_name: String,
     val order_status: String? = null,
-    val image_urls: List<String>? = null
+    val image_urls: List<String>? = null,
+    val agent: String? = null,
+    val po_number: String? = null,
+    val delivery_address: String? = null,
+    val notes: String? = null,
+    val order_items: List<DispatchOrderItemDto>? = null // for colour code/cut; matched by order_item_id
 )
 
 /** A dispatch this staff member already submitted. */
