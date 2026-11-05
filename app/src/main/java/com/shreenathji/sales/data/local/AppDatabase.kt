@@ -35,7 +35,7 @@ import kotlinx.coroutines.CoroutineScope
         DesignFolderEntity::class
     ],
     version = 19,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
@@ -198,6 +198,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Every schema bump MUST append a migration here. AppDatabaseMigrationTest fails the build otherwise. */
+        internal val ALL_MIGRATIONS = arrayOf(
+            MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
+            MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
+        )
+
+        /** Pre-v10 installs never had migrations; only those may be recreated. */
+        internal val DESTRUCTIVE_FROM_VERSIONS = (1..9).toList().toIntArray()
+
         fun getDatabase(context: Context, scope: CoroutineScope): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -205,9 +214,10 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "shreenathji_sales.db"
                 )
-                .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
-                .fallbackToDestructiveMigration()
-                .fallbackToDestructiveMigrationOnDowngrade()
+                .addMigrations(*ALL_MIGRATIONS)
+                // No blanket destructive fallback: it silently deletes unsynced offline orders.
+                // A missing migration now fails loudly (and in tests) instead of wiping data.
+                .fallbackToDestructiveMigrationFrom(*DESTRUCTIVE_FROM_VERSIONS)
                 .build()
                 INSTANCE = instance
                 instance

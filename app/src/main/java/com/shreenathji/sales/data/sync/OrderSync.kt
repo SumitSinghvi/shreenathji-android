@@ -194,6 +194,8 @@ internal class OrderSync(
             if (unsynced.isEmpty()) return
             Log.d("SupabaseSync", "Pushing ${unsynced.size} unsynced orders to Supabase")
             unsynced.forEach { orderWithItems ->
+              // Per-order isolation: one order failing (e.g. repeated number conflict) must not skip the rest.
+              try {
                 var currentOrder = orderWithItems.order
                 val (uploadedUrls, remappedItems) = uploadAndRemap(currentOrder, orderWithItems.items)
 
@@ -242,6 +244,11 @@ internal class OrderSync(
                 } else {
                     Log.w("SupabaseSync", "Order ${currentOrder.orderNumber} sync failed — will retry on next sync")
                 }
+              } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+              } catch (e: Exception) {
+                Log.w("SupabaseSync", "Order ${orderWithItems.order.orderNumber} sync errored — will retry on next sync: ${e.message}")
+              }
             }
         } catch (e: Exception) {
             Log.e("SupabaseSync", "Error syncing pending orders: ${e.message}", e)

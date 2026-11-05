@@ -53,6 +53,14 @@ android {
         checkReleaseBuilds = false
         abortOnError = false
     }
+    // Exported Room schemas (app/schemas) feed MigrationTestHelper in JVM tests.
+    // Robolectric reads the variant's merged assets, not the test source set, so add to debug (not release).
+    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
+    testOptions.unitTests.isIncludeAndroidResources = true
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -108,6 +116,10 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.9")
     testImplementation("com.google.truth:truth:1.4.2")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.room:room-testing:$roomVersion")
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("androidx.test.ext:junit:1.1.5")
 
     // Instrumented Android Testing
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
