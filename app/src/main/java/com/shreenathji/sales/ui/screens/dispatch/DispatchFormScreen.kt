@@ -128,6 +128,11 @@ fun DispatchFormScreen(
             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            order.party_address?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 12.sp, color = Slate500)
+            }
+            OrderInfoBlock(order)
+
             Text("Fabric Items & Actual Meters", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Slate950)
 
             orderItems.forEach { item ->
@@ -160,6 +165,7 @@ fun DispatchFormScreen(
                                         Text("• $it", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BrandOrange)
                                     }
                                 }
+                                ItemDetails(item)
                             }
                         }
 

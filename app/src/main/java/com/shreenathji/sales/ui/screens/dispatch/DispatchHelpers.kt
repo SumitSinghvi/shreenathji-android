@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.shreenathji.sales.data.remote.dto.DispatchOrderDto
+import com.shreenathji.sales.data.remote.dto.DispatchOrderItemDto
 import com.shreenathji.sales.data.remote.dto.DispatchRecordDto
 import com.shreenathji.sales.ui.components.BadgeVariant
 import com.shreenathji.sales.ui.components.ImageViewerDialog
@@ -83,3 +84,53 @@ internal fun EmptyNote(text: String) {
     }
 }
 
+
+/** Colour code / note for an item; "Photo" is a placeholder note, not a colour. */
+internal fun colorNote(item: DispatchOrderItemDto): String? =
+    item.notes?.trim()?.takeIf { it.isNotEmpty() && !it.equals("Photo", ignoreCase = true) }
+
+/** Cut × pieces line for matching/multi-piece items, e.g. "Cut 2.5 m × 2". Null for plain fabric. */
+internal fun cutLine(item: DispatchOrderItemDto): String? {
+    val mult = if (item.multiplier > 1) item.multiplier else if (item.is_matching) 2 else 1
+    if (mult <= 1) return null
+    val cut = item.cut_meter?.takeIf { it != 0.0 } ?: (item.meter / mult)
+    return "Cut ${fmtMeter(cut)} m × $mult"
+}
+
+/** Item extras shown under the product name: colour code and cut. */
+@Composable
+internal fun ItemDetails(item: DispatchOrderItemDto) {
+    colorNote(item)?.let {
+        Text("Colour: $it", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+    }
+    cutLine(item)?.let {
+        Text(it, fontSize = 11.sp, color = Slate500)
+    }
+}
+
+/** Order-level details (no rates): PO, agent, delivery address, order notes. */
+@Composable
+internal fun OrderInfoBlock(order: DispatchOrderDto) {
+    val fields = listOf(
+        "PO" to order.po_number,
+        "Agent" to order.agent,
+        "Deliver to" to order.delivery_address,
+        "Order notes" to order.notes
+    ).filter { !it.second.isNullOrBlank() }
+    if (fields.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Slate50)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        fields.forEach { (label, value) ->
+            Row {
+                Text("$label: ", fontWeight = FontWeight.SemiBold, fontSize = 11.sp, color = Slate600)
+                Text(value.orEmpty().trim(), fontSize = 11.sp, color = Slate900)
+            }
+        }
+    }
+}

@@ -20,8 +20,8 @@ class DispatchApi(
     /** Approved orders waiting for dispatch. Selects meters only, never price/total. */
     suspend fun getToDispatch(): List<DispatchOrderDto>? = withContext(Dispatchers.IO) {
         val endpoint = "orders?order_status=eq.CONFIRMED" +
-            "&select=id,order_number,party_name,party_address,notes,order_timestamp,image_urls," +
-            "order_items(id,product_name,meter,component,notes,image_url)" +
+            "&select=id,order_number,party_name,party_address,agent,po_number,delivery_address,notes,order_timestamp,image_urls," +
+            "order_items(id,product_name,meter,component,notes,image_url,is_matching,multiplier,cut_meter)" +
             "&order=order_timestamp.asc&limit=300" // ponytail: oldest 300 first; add offset paging + server search if backlog nears this
         fetchList(endpoint, object : TypeToken<List<DispatchOrderDto>>() {})
     }

@@ -7,8 +7,11 @@ data class DispatchOrderItemDto(
     val product_name: String,
     val meter: Double,
     val component: String? = null,
-    val notes: String? = null,
-    val image_url: String? = null
+    val notes: String? = null, // colour code / note per item
+    val image_url: String? = null,
+    val is_matching: Boolean = false,
+    val multiplier: Int = 1,
+    val cut_meter: Double? = null
 )
 
 /** An approved (CONFIRMED) order waiting to be dispatched. */
@@ -17,6 +20,9 @@ data class DispatchOrderDto(
     val order_number: String,
     val party_name: String,
     val party_address: String? = null,
+    val agent: String? = null,
+    val po_number: String? = null,
+    val delivery_address: String? = null,
     val notes: String? = null,
     val order_timestamp: String? = null,
     val image_urls: List<String>? = null,

@@ -107,6 +107,8 @@ internal fun ToDispatchCard(
                 }
             }
 
+            OrderInfoBlock(order)
+
             HorizontalDivider(color = Slate100, thickness = 1.dp)
 
             // Fabric Items List with Swatches
@@ -165,6 +167,7 @@ internal fun ToDispatchCard(
                                     color = if (it == "TOP") Slate700 else BrandOrange
                                 )
                             }
+                            ItemDetails(item)
                         }
 
                         // Meters
