@@ -39,6 +39,10 @@ import com.shreenathji.sales.data.local.auth.LicenseSessionGuard
 import com.shreenathji.sales.data.remote.SupabaseClient
 import com.shreenathji.sales.data.repository.SalesRepository
 import com.shreenathji.sales.ui.screens.DesignGalleryScreen
+import com.shreenathji.sales.ui.screens.dispatch.DispatchFormScreen
+import com.shreenathji.sales.ui.screens.dispatch.DispatchHomeScreen
+import com.shreenathji.sales.ui.viewmodels.DispatchViewModel
+import com.shreenathji.sales.ui.viewmodels.DispatchViewModelFactory
 import com.shreenathji.sales.ui.screens.LicenseGateScreen
 import com.shreenathji.sales.ui.screens.OrderFormScreen
 import com.shreenathji.sales.ui.screens.OrderHistoryScreen
@@ -52,6 +56,9 @@ import com.shreenathji.sales.ui.viewmodels.OrderHistoryViewModel
 import com.shreenathji.sales.ui.viewmodels.OrderHistoryViewModelFactory
 import com.shreenathji.sales.ui.viewmodels.PartyListViewModel
 import com.shreenathji.sales.ui.viewmodels.PartyListViewModelFactory
+
+private const val DISPATCH_HOME = "dispatch_home"
+private const val DISPATCH_FORM = "dispatch_form"
 
 @Composable
 fun AppNavigation(
@@ -73,7 +80,20 @@ fun AppNavigation(
     val currentRoute = navBackStackEntry?.destination?.route
     val isLicenseGate = currentRoute == "license_gate"
 
-    val startDestination = if (authManager.isLicensed()) Screen.PartyList.route else "license_gate"
+    // Dispatch logins get the dispatch screens only: no bottom nav, no order form, no other tab.
+    fun homeRoute() =
+        if (authManager.getCurrentStaff()?.isDispatch == true) DISPATCH_HOME else Screen.PartyList.route
+
+    val isDispatchUser = authManager.isLicensed() && authManager.getCurrentStaff()?.isDispatch == true
+    val startDestination = if (authManager.isLicensed()) homeRoute() else "license_gate"
+
+    LaunchedEffect(currentRoute, isDispatchUser) {
+        if (isDispatchUser && currentRoute != null && currentRoute != "license_gate" &&
+            !currentRoute.startsWith("dispatch")
+        ) {
+            navController.navigate(DISPATCH_HOME) { popUpTo(0) { inclusive = true } }
+        }
+    }
 
     LaunchedEffect(licenseSessionGuard) {
         licenseSessionGuard.sessionInvalidated.collect { message ->
@@ -89,7 +109,7 @@ fun AppNavigation(
         containerColor = Slate50,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (!isLicenseGate) {
+            if (!isLicenseGate && !isDispatchUser) {
                 ModernFullWidthBottomNav(
                     items = bottomNavItems,
                     currentRoute = currentRoute,
@@ -125,10 +145,46 @@ fun AppNavigation(
                     supabaseClient = supabaseClient,
                     onLicenseActivated = {
                         repository.syncWithCloud()
-                        navController.navigate(Screen.PartyList.route) {
+                        navController.navigate(homeRoute()) {
                             popUpTo("license_gate") { inclusive = true }
                         }
                     }
+                )
+            }
+
+            // Dispatch logins: work list
+            composable(DISPATCH_HOME) {
+                val viewModel: DispatchViewModel = viewModel(
+                    factory = DispatchViewModelFactory(supabaseClient, authManager, context)
+                )
+                DispatchHomeScreen(
+                    viewModel = viewModel,
+                    onOpenForm = { orderId -> navController.navigate("$DISPATCH_FORM/$orderId") },
+                    onLogout = {
+                        authManager.clearLicense()
+                        supabaseClient.setAuthToken(null)
+                        navController.navigate("license_gate") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // Dispatch logins: form for one approved order (shares the home screen's view model)
+            composable(
+                route = "$DISPATCH_FORM/{orderId}",
+                arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+                val homeEntry = remember(backStackEntry) { navController.getBackStackEntry(DISPATCH_HOME) }
+                val viewModel: DispatchViewModel = viewModel(
+                    viewModelStoreOwner = homeEntry,
+                    factory = DispatchViewModelFactory(supabaseClient, authManager, context)
+                )
+                DispatchFormScreen(
+                    viewModel = viewModel,
+                    orderId = orderId,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

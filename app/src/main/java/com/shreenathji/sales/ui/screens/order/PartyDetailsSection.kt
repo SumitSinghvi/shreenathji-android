@@ -4,8 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CheckCircle
@@ -19,9 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.PopupProperties
 import com.shreenathji.sales.data.local.entities.PartyEntity
 import com.shreenathji.sales.ui.components.PartyAvatar
+import com.shreenathji.sales.ui.components.SearchPickerDialog
 import com.shreenathji.sales.ui.components.ShadcnBadge
 import com.shreenathji.sales.ui.components.BadgeVariant
 import com.shreenathji.sales.ui.components.ShadcnCard
@@ -44,27 +42,15 @@ fun PartyDetailsSection(
     onPoNumberChanged: (String) -> Unit,
     onDeliveryAddressChanged: (String) -> Unit
 ) {
-    var partyDropdownExpanded by remember { mutableStateOf(false) }
-    var changingStore by remember { mutableStateOf(false) }
-    // Once a store is picked and has an address, collapse to one line.
-    val showCompactStore = selectedParty != null && !changingStore && partyAddress.isNotBlank()
+    var partyPickerOpen by remember { mutableStateOf(false) }
     var moreDetailsExpanded by remember {
         mutableStateOf(
             agent.isNotBlank() || poNumber.isNotBlank() || deliveryAddress.isNotBlank()
         )
     }
 
-    val filteredParties = remember(partyName, parties, currentStaffId) {
-        val list = if (partyName.isBlank()) {
-            parties
-        } else {
-            parties.filter {
-                it.businessName.contains(partyName, ignoreCase = true) ||
-                it.formattedAddress.contains(partyName, ignoreCase = true) ||
-                (it.contactPerson?.contains(partyName, ignoreCase = true) == true)
-            }
-        }
-        list.sortedByDescending { it.isAllottedTo(currentStaffId) }
+    val sortedParties = remember(parties, currentStaffId) {
+        parties.sortedByDescending { it.isAllottedTo(currentStaffId) }
     }
 
     ShadcnCard(
@@ -104,53 +90,6 @@ fun PartyDetailsSection(
                 }
             }
 
-            if (showCompactStore && selectedParty != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = EmeraldSuccessBg,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldSuccessBorder),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PartyAvatar(
-                            name = selectedParty.businessName,
-                            size = 40.dp,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = selectedParty.businessName,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = partyAddress,
-                                fontSize = 12.sp,
-                                color = Slate600,
-                                maxLines = 1
-                            )
-                            if (!selectedParty.isSynced) {
-                                Text(
-                                    text = "Not sent yet",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = AmberWarningText
-                                )
-                            }
-                        }
-                        TextButton(onClick = { changingStore = true }) {
-                            Text("Change", fontWeight = FontWeight.Bold, color = BrandOrangeDark)
-                        }
-                    }
-                }
-            } else {
             if (selectedParty != null) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Surface(
@@ -199,21 +138,16 @@ fun PartyDetailsSection(
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = partyName,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    onValueChange = { query ->
-                        onPartyNameChanged(query)
-                        partyDropdownExpanded = true
-                    },
+                    onValueChange = {},
+                    readOnly = true,
                     label = { Text("Store name *", fontSize = 14.sp, color = Slate600) },
-                    placeholder = { Text("Type store name or select...", color = Slate400) },
+                    placeholder = { Text("Tap to search or select store...", color = Slate400) },
                     trailingIcon = {
-                        IconButton(onClick = { partyDropdownExpanded = !partyDropdownExpanded }) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = "Browse stores",
-                                tint = Slate900
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Browse stores",
+                            tint = Slate900
+                        )
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -221,74 +155,77 @@ fun PartyDetailsSection(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = ShadcnWhite,
                         unfocusedContainerColor = ShadcnWhite,
-                        focusedBorderColor = BrandOrange,
+                        focusedBorderColor = Slate900,
                         unfocusedBorderColor = Slate200,
                         focusedTextColor = Slate950,
                         unfocusedTextColor = Slate950
                     )
                 )
+                // Transparent tap layer: the field itself is read-only, typing happens in the picker.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable { partyPickerOpen = true }
+                )
+            }
 
-                if (filteredParties.isNotEmpty()) {
-                    DropdownMenu(
-                        expanded = partyDropdownExpanded,
-                        onDismissRequest = { partyDropdownExpanded = false },
-                        properties = PopupProperties(focusable = false),
-                        modifier = Modifier.fillMaxWidth(0.92f)
+            if (partyPickerOpen) {
+                SearchPickerDialog(
+                    title = "Select store",
+                    placeholder = "Search store name or address…",
+                    items = sortedParties,
+                    matches = { party, q ->
+                        party.businessName.contains(q, ignoreCase = true) ||
+                            party.formattedAddress.contains(q, ignoreCase = true) ||
+                            (party.contactPerson?.contains(q, ignoreCase = true) == true)
+                    },
+                    onDismiss = { partyPickerOpen = false },
+                    onPick = { party ->
+                        onPartySelected(party)
+                        partyPickerOpen = false
+                    },
+                    onUseTyped = { name ->
+                        onPartyNameChanged(name)
+                        partyPickerOpen = false
+                    }
+                ) { party ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        filteredParties.forEach { party ->
-                            DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        PartyAvatar(
-                                            name = party.businessName,
-                                            size = 34.dp,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = party.businessName,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = Slate950
-                                                )
-                                                if (!party.isSynced) {
-                                                    ShadcnBadge(
-                                                        text = "Not sent yet",
-                                                        variant = BadgeVariant.WARNING
-                                                    )
-                                                }
-                                                if (party.isAllottedTo(currentStaffId)) {
-                                                    ShadcnBadge(
-                                                        text = "My party",
-                                                        variant = BadgeVariant.SUCCESS
-                                                    )
-                                                }
-                                            }
-                                            if (party.formattedAddress.isNotBlank()) {
-                                                Text(
-                                                    text = party.formattedAddress,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = Slate500,
-                                                    maxLines = 1
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                onClick = {
-                                    onPartySelected(party)
-                                    changingStore = false
-                                    partyDropdownExpanded = false
+                        PartyAvatar(
+                            name = party.businessName,
+                            size = 38.dp,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = party.businessName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Slate950,
+                                    modifier = Modifier.weight(1f, fill = false)
+                                )
+                                if (!party.isSynced) {
+                                    ShadcnBadge(text = "Not sent yet", variant = BadgeVariant.WARNING)
                                 }
-                            )
+                                if (party.isAllottedTo(currentStaffId)) {
+                                    ShadcnBadge(text = "My party", variant = BadgeVariant.SUCCESS)
+                                }
+                            }
+                            if (party.formattedAddress.isNotBlank()) {
+                                Text(
+                                    text = party.formattedAddress,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Slate500,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
@@ -298,7 +235,6 @@ fun PartyDetailsSection(
 
             OutlinedTextField(
                 value = partyAddress,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 onValueChange = onPartyAddressChanged,
                 label = { Text("Store address *", fontSize = 14.sp, color = Slate600) },
                 placeholder = { Text("Shop number, market, city...", color = Slate400) },
@@ -307,14 +243,13 @@ fun PartyDetailsSection(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = ShadcnWhite,
                     unfocusedContainerColor = ShadcnWhite,
-                    focusedBorderColor = BrandOrange,
+                    focusedBorderColor = Slate900,
                     unfocusedBorderColor = Slate200,
                     focusedTextColor = Slate950,
                     unfocusedTextColor = Slate950
                 ),
                 maxLines = 2
             )
-            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -348,7 +283,6 @@ fun PartyDetailsSection(
                     ) {
                         OutlinedTextField(
                             value = agent,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             onValueChange = onAgentChanged,
                             label = { Text("Broker", fontSize = 14.sp, color = Slate600) },
                             placeholder = { Text("Broker name", color = Slate400) },
@@ -358,7 +292,7 @@ fun PartyDetailsSection(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = ShadcnWhite,
                                 unfocusedContainerColor = ShadcnWhite,
-                                focusedBorderColor = BrandOrange,
+                                focusedBorderColor = Slate900,
                                 unfocusedBorderColor = Slate200,
                                 focusedTextColor = Slate950,
                                 unfocusedTextColor = Slate950
@@ -367,7 +301,6 @@ fun PartyDetailsSection(
 
                         OutlinedTextField(
                             value = poNumber,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                             onValueChange = onPoNumberChanged,
                             label = { Text("PO / Ref", fontSize = 14.sp, color = Slate600) },
                             placeholder = { Text("e.g. PO-8942", color = Slate400) },
@@ -377,7 +310,7 @@ fun PartyDetailsSection(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = ShadcnWhite,
                                 unfocusedContainerColor = ShadcnWhite,
-                                focusedBorderColor = BrandOrange,
+                                focusedBorderColor = Slate900,
                                 unfocusedBorderColor = Slate200,
                                 focusedTextColor = Slate950,
                                 unfocusedTextColor = Slate950
@@ -389,7 +322,6 @@ fun PartyDetailsSection(
 
                     OutlinedTextField(
                         value = deliveryAddress,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         onValueChange = onDeliveryAddressChanged,
                         label = { Text("Delivery address (optional)", fontSize = 14.sp, color = Slate600) },
                         placeholder = { Text("Godown or transport address if different", color = Slate400) },
@@ -398,7 +330,7 @@ fun PartyDetailsSection(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = ShadcnWhite,
                             unfocusedContainerColor = ShadcnWhite,
-                            focusedBorderColor = BrandOrange,
+                            focusedBorderColor = Slate900,
                             unfocusedBorderColor = Slate200,
                             focusedTextColor = Slate950,
                             unfocusedTextColor = Slate950

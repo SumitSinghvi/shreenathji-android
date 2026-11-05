@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
         // Push immediate online heartbeat on app launch if staff is already logged in
         if (authManager.isLoggedIn()) {
             val staff = authManager.getCurrentStaff()
-            if (staff != null) {
+            if (staff != null && !staff.isDispatch) {
                 lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
                     try {
                         if (androidx.core.content.ContextCompat.checkSelfPermission(
@@ -154,6 +154,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestPermissions() {
+        // Dispatch logins are not location-tracked, so skip the location prompts.
+        val app = application as SalesApplication
+        if (app.authManager.isLicensed() && app.authManager.getCurrentStaff()?.isDispatch == true) return
+
         val permissionsToRequest = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION

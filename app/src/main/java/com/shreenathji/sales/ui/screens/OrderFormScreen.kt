@@ -167,71 +167,18 @@ fun OrderFormScreen(
     }
 
     if (showSuccessDialog) {
-        val summary = savedOrderSummary
-        Dialog(onDismissRequest = { /* require Done */ }) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = ShadcnWhite,
-                tonalElevation = 4.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = EmeraldSuccess,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Order saved",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Slate950
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "You can find it under Orders.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Slate500
-                    )
-                    if (summary != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        OrderSavedSummaryBlock(
-                            partyName = summary.partyName,
-                            totalMeters = summary.totalMeters,
-                            rates = summary.rates,
-                            currencyFormatter = currencyFormatter
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Button(
-                        onClick = {
-                            showSuccessDialog = false
-                            savedOrderSummary = null
-                            onOrderSubmitted()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandOrange,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text("Done", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+        OrderSavedDialog(savedOrderSummary, currencyFormatter) {
+            showSuccessDialog = false
+            savedOrderSummary = null
+            onOrderSubmitted()
         }
     }
 
     Scaffold(
         topBar = {
             ShadcnHeader(
-                title = "Book Order",
-                subtitle = "Store and fabric details",
+                title = "New order",
+                subtitle = "Fill store and fabric details • v${BuildConfig.VERSION_NAME}",
                 actions = {
                     ShadcnBadge(
                         text = "v${BuildConfig.VERSION_NAME}",
@@ -262,7 +209,7 @@ fun OrderFormScreen(
                 .padding(padding)
                 .background(Slate50),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Status / validation banner (top)
             item {
@@ -309,7 +256,7 @@ fun OrderFormScreen(
                     Column {
                         Text(
                             text = "Fabric items",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Slate950
                         )
@@ -445,7 +392,7 @@ fun OrderFormScreen(
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedContainerColor = ShadcnWhite,
                                     unfocusedContainerColor = ShadcnWhite,
-                                    focusedBorderColor = BrandOrange,
+                                    focusedBorderColor = Slate900,
                                     unfocusedBorderColor = Slate200,
                                     focusedTextColor = Slate950,
                                     unfocusedTextColor = Slate950
@@ -510,98 +457,3 @@ fun OrderFormScreen(
     }
 }
 
-@Composable
-private fun OrderSavedSummaryBlock(
-    partyName: String,
-    totalMeters: Double,
-    rates: List<Double>,
-    currencyFormatter: NumberFormat
-) {
-    val metersText = if (totalMeters == totalMeters.toLong().toDouble()) {
-        "${totalMeters.toLong()} Mtrs"
-    } else {
-        "$totalMeters Mtrs"
-    }
-    val rateText = rates.joinToString(" · ") { currencyFormatter.format(it) }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = Slate50,
-        border = BorderStroke(1.dp, Slate200)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OrderSummaryRow(label = "Party", value = partyName)
-            OrderSummaryRow(label = "Meters", value = metersText)
-            if (rateText.isNotBlank()) {
-                OrderSummaryRow(label = "Rate", value = rateText)
-            }
-        }
-    }
-}
-
-@Composable
-private fun OrderSummaryRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Slate500
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Slate950,
-            modifier = Modifier.padding(start = 12.dp)
-        )
-    }
-}
-
-@Composable
-private fun OrderFormStatusBanner(
-    message: String,
-    isWarning: Boolean
-) {
-    val bg = if (isWarning) AmberWarningBg else SkyInfoBg
-    val border = if (isWarning) AmberWarningBorder else SkyInfoBorder
-    val tint = if (isWarning) AmberWarningText else SkyInfoText
-    val icon = if (isWarning) Icons.Default.Warning else Icons.Default.Info
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = bg,
-        border = BorderStroke(1.dp, border)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = tint
-            )
-        }
-    }
-}

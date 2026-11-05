@@ -14,6 +14,9 @@ data class StaffMember(
     val orderPrefix: String? = null
 ) {
     val accessCode: String get() = pinCode
+
+    /** Dispatch logins only ever see the dispatch screens. */
+    val isDispatch: Boolean get() = role.trim().equals("dispatch", ignoreCase = true)
     val prefix: String get() {
         if (!orderPrefix.isNullOrBlank()) return orderPrefix.trim().uppercase()
         val words = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }

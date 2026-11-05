@@ -133,22 +133,21 @@ private fun OrderTotalSummary(
                 } else {
                     MaterialTheme.typography.headlineMedium
                 },
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.ExtraBold,
                 color = Slate950
             )
         }
 
         Surface(
             shape = RoundedCornerShape(20.dp),
-            color = BrandOrangeLight,
-            border = BorderStroke(1.dp, BrandOrangeBorder),
+            color = Slate100,
             modifier = Modifier.padding(vertical = 2.dp)
         ) {
             Text(
                 text = "$qualityCount fabric${if (qualityCount != 1) "s" else ""} · $colorCount color${if (colorCount != 1) "s" else ""}",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Bold,
-                color = BrandOrangeDark,
+                color = Slate700,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }

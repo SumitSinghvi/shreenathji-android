@@ -60,7 +60,8 @@ class LocationTrackingService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        if (!app.authManager.isLicensed()) {
+        // Dispatch staff work at the godown: never track them or show them on the field map.
+        if (!app.authManager.isLicensed() || app.authManager.getCurrentStaff()?.isDispatch == true) {
             stopSelf()
             return START_NOT_STICKY
         }

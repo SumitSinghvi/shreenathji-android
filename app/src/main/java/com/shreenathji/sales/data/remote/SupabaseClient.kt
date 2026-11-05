@@ -238,6 +238,24 @@ class SupabaseClient(
     private val ordersApi = OrdersApi(client, gson, ::buildRequest, ::getEffectiveToken)
     internal val masterDataApi = MasterDataApi(client, gson, ::buildRequest)
     private val trackingApi = TrackingApi(client, gson, ::buildRequest)
+    private val dispatchApi = com.shreenathji.sales.data.remote.api.DispatchApi(client, gson, ::buildRequest)
+
+    // Dispatch Operations
+    suspend fun getToDispatch(): List<com.shreenathji.sales.data.remote.dto.DispatchOrderDto>? {
+        ensureAuthenticatedSession()
+        return dispatchApi.getToDispatch()
+    }
+
+    suspend fun getMyDispatches(staffId: String): List<com.shreenathji.sales.data.remote.dto.DispatchRecordDto>? {
+        ensureAuthenticatedSession()
+        return dispatchApi.getMyDispatches(staffId)
+    }
+
+    /** Returns null on success, otherwise an error message. */
+    suspend fun saveDispatch(payload: Map<String, Any?>): String? {
+        ensureAuthenticatedSession()
+        return dispatchApi.saveDispatch(payload)
+    }
 
     // Master Data Operations
     suspend fun getStaff(): List<StaffDto>? = masterDataApi.getStaff()

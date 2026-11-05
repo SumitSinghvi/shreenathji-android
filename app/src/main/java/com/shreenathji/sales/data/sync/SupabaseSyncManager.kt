@@ -58,7 +58,6 @@ class SupabaseSyncManager(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val gson = Gson()
-    private var consecutiveLocationFailures = 0
 
     private val syncMutex = Mutex()
     @Volatile private var lastSyncFinishedAt = 0L
@@ -321,259 +320,14 @@ class SupabaseSyncManager(
         )
     }
 
-    private fun toPartyEntity(it: PartyDto) = PartyEntity(
-        id = it.id,
-        businessName = it.business_name,
-        contactPerson = it.contact_person,
-        phone = it.phone,
-        addressLine1 = it.address_line1,
-        addressLine2 = it.address_line2,
-        defaultAgent = it.default_agent,
-        latitude = it.latitude,
-        longitude = it.longitude,
-        assignedRepIdsJson = if (it.assigned_rep_ids != null) gson.toJson(it.assigned_rep_ids) else null
-    )
+    private val orderSync = OrderSync(context, supabaseClient, orderDao, scope)
 
-    private fun toProductEntity(it: ProductDto): ProductEntity {
-        val mult = it.matching_multiplier ?: if (it.is_matching) 2 else 1
-        return ProductEntity(
-            id = it.id,
-            name = it.name,
-            category = it.category ?: "Dying",
-            defaultRate = it.default_rate,
-            unit = it.unit,
-            isMatching = mult > 1 || it.is_matching,
-            matchingMultiplier = mult,
-            isTopBottom = it.is_top_bottom == true,
-            defaultRateBottom = it.default_rate_bottom
-        )
-    }
+    suspend fun syncOrdersFromSupabase() = orderSync.syncOrdersFromSupabase()
 
-    private fun toFolderEntity(it: DesignFolderDto) = DesignFolderEntity(
-        id = it.id,
-        name = it.name,
-        parentId = it.parent_id,
-        sortOrder = it.sort_order,
-        coverDesignId = it.cover_design_id,
-        createdAt = it.created_at
-    )
+    suspend fun syncPendingOrders() = orderSync.syncPendingOrders()
 
-    private fun toDesignEntity(it: DesignDto) = DesignEntity(
-        id = it.id,
-        imageUrl = it.image_url,
-        thumbUrl = it.thumb_url,
-        originalFilename = it.original_filename,
-        notes = it.notes,
-        uploadedByStaffId = it.uploaded_by_staff_id,
-        uploadedByName = it.uploaded_by_name,
-        capturedOn = it.captured_on,
-        isArchived = it.is_archived,
-        folderId = it.folder_id,
-        createdAt = it.created_at
-    )
+    fun pushOrderAsync(order: OrderEntity, items: List<OrderItemEntity>) = orderSync.pushOrderAsync(order, items)
 
-    suspend fun syncOrdersFromSupabase() {
-        try {
-            val remoteOrders = supabaseClient.getOrdersWithItems()
-            if (remoteOrders != null) {
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-                val orderEntities = mutableListOf<OrderEntity>()
-                val allItemEntities = mutableListOf<OrderItemEntity>()
-
-                remoteOrders.forEach { remote ->
-                    val timestamp = try {
-                        val dateStr = remote.created_at ?: remote.order_timestamp
-                        if (!dateStr.isNullOrBlank()) {
-                            val cleanStr = dateStr.take(19)
-                            dateFormat.parse(cleanStr)?.time ?: System.currentTimeMillis()
-                        } else {
-                            System.currentTimeMillis()
-                        }
-                    } catch (e: Exception) {
-                        System.currentTimeMillis()
-                    }
-
-                    val imageUrisJson = if (!remote.image_urls.isNullOrEmpty()) {
-                        gson.toJson(remote.image_urls)
-                    } else null
-
-                    val designIdsJson = if (!remote.design_ids.isNullOrEmpty()) {
-                        gson.toJson(remote.design_ids)
-                    } else null
-
-                    val orderEntity = OrderEntity(
-                        id = remote.id,
-                        orderNumber = remote.order_number,
-                        partyId = remote.party_id ?: "",
-                        partyName = remote.party_name,
-                        partyAddress = remote.party_address,
-                        agent = remote.agent,
-                        poNumber = remote.po_number,
-                        deliveryAddress = remote.delivery_address,
-                        imageUrisJson = imageUrisJson,
-                        designIdsJson = designIdsJson,
-                        totalAmount = remote.total_amount,
-                        orderStatus = remote.order_status,
-                        rejectionReason = remote.rejection_reason,
-                        notes = remote.notes,
-                        salesRepId = remote.sales_rep_id,
-                        salesRepName = remote.sales_rep_name,
-                        orderTimestamp = timestamp,
-                        latitude = remote.latitude,
-                        longitude = remote.longitude,
-                        isSynced = true
-                    )
-                    orderEntities.add(orderEntity)
-
-                    val itemEntities = remote.order_items?.map { item ->
-                        OrderItemEntity(
-                            id = item.id,
-                            orderId = remote.id,
-                            productName = item.product_name,
-                            meter = item.meter,
-                            price = item.price,
-                            totalPrice = item.total_price,
-                            notes = item.notes,
-                            designId = item.design_id,
-                            imageUrl = item.image_url,
-                            isMatching = item.is_matching,
-                            multiplier = item.multiplier,
-                            cutMeter = item.cut_meter,
-                            component = item.component,
-                            setGroupId = item.set_group_id
-                        )
-                    } ?: emptyList()
-                    allItemEntities.addAll(itemEntities)
-                }
-
-                orderDao.syncReplaceOrders(orderEntities, allItemEntities)
-                Log.d("SupabaseSync", "Synced and replaced ${orderEntities.size} past orders with ${allItemEntities.size} items from cloud")
-            }
-        } catch (e: Exception) {
-            Log.e("SupabaseSync", "Error syncing orders from cloud: ${e.message}")
-        }
-    }
-
-    /** Upload local order images; returns map of original uri string → remote (or already-remote) URL. */
-    private fun remapItemImageUrls(
-        items: List<OrderItemEntity>,
-        uriToRemote: Map<String, String>
-    ): List<OrderItemEntity> {
-        if (uriToRemote.isEmpty()) return items
-        return items.map { item ->
-            val local = item.imageUrl ?: return@map item
-            val remote = uriToRemote[local] ?: return@map item
-            if (remote == local) item else item.copy(imageUrl = remote)
-        }
-    }
-
-    private suspend fun uploadAndRemap(
-        order: OrderEntity,
-        items: List<OrderItemEntity>
-    ): Pair<List<String>, List<OrderItemEntity>> {
-        val mapped = linkedMapOf<String, String>()
-        if (!order.imageUrisJson.isNullOrBlank()) {
-            try {
-                val type = object : TypeToken<List<String>>() {}.type
-                val uriStrings: List<String> = gson.fromJson(order.imageUrisJson, type)
-                uriStrings.forEach { uriStr ->
-                    try {
-                        val uri = Uri.parse(uriStr)
-                        val scheme = uri.scheme?.lowercase()
-                        if (scheme == "http" || scheme == "https") {
-                            mapped[uriStr] = uriStr
-                            return@forEach
-                        }
-                        val inputStream = if (scheme == "content" || scheme == "file") {
-                            context.contentResolver.openInputStream(uri)
-                        } else {
-                            File(uri.path ?: uriStr).inputStream()
-                        }
-                        val bytes = inputStream?.use { it.readBytes() }
-                        if (bytes != null && bytes.isNotEmpty()) {
-                            val uploadedUrl = supabaseClient.uploadOrderImage(bytes, order.orderNumber)
-                            if (!uploadedUrl.isNullOrBlank()) {
-                                mapped[uriStr] = uploadedUrl
-                            }
-                        }
-                    } catch (imgErr: Exception) {
-                        Log.e("SupabaseSync", "Failed to upload swatch image $uriStr: ${imgErr.message}")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("SupabaseSync", "Error parsing imageUrisJson: ${e.message}")
-            }
-        }
-        return mapped.values.toList() to remapItemImageUrls(items, mapped)
-    }
-
-    suspend fun syncPendingOrders() {
-        try {
-            supabaseClient.ensureAuthenticatedSession()
-            val unsynced = orderDao.getUnsyncedOrders()
-            if (unsynced.isEmpty()) return
-            Log.d("SupabaseSync", "Pushing ${unsynced.size} unsynced orders to Supabase")
-            unsynced.forEach { orderWithItems ->
-                var currentOrder = orderWithItems.order
-                val (uploadedUrls, remappedItems) = uploadAndRemap(currentOrder, orderWithItems.items)
-
-                var success: Boolean
-                try {
-                    success = supabaseClient.pushOrder(
-                        order = currentOrder,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                } catch (conflict: com.shreenathji.sales.data.remote.api.OrderConflictException) {
-                    Log.w("SupabaseSync", "Collision on orderNumber ${currentOrder.orderNumber}, regenerating...")
-                    val prefix = currentOrder.orderNumber.substringBefore("-", "ST")
-                    val newNumber = "$prefix-${100000 + kotlin.random.Random.nextInt(900000)}"
-                    orderDao.updateOrderNumber(currentOrder.id, newNumber)
-                    currentOrder = currentOrder.copy(orderNumber = newNumber)
-                    success = supabaseClient.pushOrder(
-                        order = currentOrder,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                }
-                if (!success) {
-                    kotlinx.coroutines.delay(1000)
-                    try {
-                        success = supabaseClient.pushOrder(
-                            order = currentOrder,
-                            items = remappedItems,
-                            uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                        )
-                    } catch (conflict: com.shreenathji.sales.data.remote.api.OrderConflictException) {
-                        val prefix = currentOrder.orderNumber.substringBefore("-", "ST")
-                        val newNumber = "$prefix-${100000 + kotlin.random.Random.nextInt(900000)}"
-                        orderDao.updateOrderNumber(currentOrder.id, newNumber)
-                        currentOrder = currentOrder.copy(orderNumber = newNumber)
-                        success = supabaseClient.pushOrder(
-                            order = currentOrder,
-                            items = remappedItems,
-                            uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                        )
-                    }
-                }
-                if (success) {
-                    orderDao.markOrderAsSynced(currentOrder.id)
-                    Log.d("SupabaseSync", "Order ${currentOrder.orderNumber} synced to Supabase with ${uploadedUrls.size} images")
-                } else {
-                    Log.w("SupabaseSync", "Order ${currentOrder.orderNumber} sync failed — will retry on next sync")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SupabaseSync", "Error syncing pending orders: ${e.message}", e)
-        }
-    }
-
-    private fun formatIsoUtcDate(timestamp: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        return sdf.format(Date(timestamp))
-    }
 
     suspend fun syncPendingVisitPlans() {
         try {
@@ -623,34 +377,6 @@ class SupabaseSyncManager(
         return url
     }
 
-    fun pushOrderAsync(order: OrderEntity, items: List<OrderItemEntity>) {
-        scope.launch {
-            try {
-                val (uploadedUrls, remappedItems) = uploadAndRemap(order, items)
-                var success = supabaseClient.pushOrder(
-                    order = order,
-                    items = remappedItems,
-                    uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                )
-                if (!success) {
-                    kotlinx.coroutines.delay(1000)
-                    success = supabaseClient.pushOrder(
-                        order = order,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                }
-                if (success) {
-                    orderDao.markOrderAsSynced(order.id)
-                    Log.d("SupabaseSync", "Order ${order.orderNumber} pushed live to Supabase with ${uploadedUrls.size} images")
-                } else {
-                    Log.w("SupabaseSync", "Order ${order.orderNumber} live push failed — retained locally (isSynced=0) for background sync")
-                }
-            } catch (e: Exception) {
-                Log.e("SupabaseSync", "Exception in pushOrderAsync: ${e.message}", e)
-            }
-        }
-    }
 
     fun pushNewVisitPlanAsync(plan: DailyVisitPlanEntity) {
         scope.launch {
@@ -703,78 +429,17 @@ class SupabaseSyncManager(
         }
     }
 
-    private val locationMutex = Mutex()
+    private val locationSync = LocationSync(supabaseClient, locationDao, authManager, licenseSessionGuard, scope)
 
-    /**
-     * Uploads every unsynced location, oldest first, up to 50 per request. Serialized with a lock:
-     * the tracking service (after each fix) and the full sync both call this, and without the lock
-     * they could send the same rows twice.
-     */
-    suspend fun syncPendingLocations() = locationMutex.withLock {
-        try {
-            // Prune old logs (>48h) to prevent unbounded local DB growth
-            val cutoff = System.currentTimeMillis() - (48 * 3600 * 1000L)
-            locationDao.pruneOldLocations(cutoff)
+    suspend fun syncPendingLocations() = locationSync.syncPendingLocations()
 
-            val staff = authManager.getCurrentStaff()
-            repeat(MAX_LOCATION_BATCHES_PER_RUN) {
-                val unsynced = locationDao.getUnsyncedLocations()
-                if (unsynced.isEmpty()) return@withLock
+    fun pushLocationAsync(log: LocationLogEntity) = locationSync.pushLocationAsync(log)
 
-                val success = supabaseClient.pushLocationLogsBatch(
-                    logs = unsynced,
-                    salesRepId = staff?.id,
-                    salesRepName = staff?.name
-                )
+    suspend fun pushLocationAndMark(log: LocationLogEntity): Boolean = locationSync.pushLocationAndMark(log)
 
-                if (success) {
-                    consecutiveLocationFailures = 0
-                    locationDao.markLocationsSynced(unsynced.map { it.id })
-                    Log.d("SupabaseSync", "Uploaded ${unsynced.size} location logs in 1 batch")
-                } else {
-                    consecutiveLocationFailures++
-                    Log.w("SupabaseSync", "Location batch sync failed (attempt $consecutiveLocationFailures)")
-                    if (consecutiveLocationFailures >= 5) {
-                        licenseSessionGuard?.validateOrWipe()
-                    }
-                    return@withLock
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("SupabaseSync", "Error syncing pending locations: ${e.message}")
-        }
-    }
-
-    fun pushLocationAsync(log: LocationLogEntity) {
-        scope.launch {
-            pushLocationAndMark(log)
-        }
-    }
-
-    suspend fun pushLocationAndMark(log: LocationLogEntity): Boolean {
-        val staff = authManager.getCurrentStaff()
-        val success = supabaseClient.pushLocationLog(
-            log = log,
-            salesRepId = staff?.id,
-            salesRepName = staff?.name
-        )
-        if (success) {
-            consecutiveLocationFailures = 0
-            if (log.id > 0) {
-                locationDao.markLocationsSynced(listOf(log.id))
-            }
-        } else {
-            consecutiveLocationFailures++
-            if (consecutiveLocationFailures >= 5) {
-                licenseSessionGuard?.validateOrWipe()
-            }
-        }
-        return success
-    }
 
     private companion object {
         const val MIN_SYNC_INTERVAL_MS = 30_000L
-        const val MAX_LOCATION_BATCHES_PER_RUN = 5
         const val FAR_FUTURE = "9999-12-31T00:00:00+00:00"
     }
 }

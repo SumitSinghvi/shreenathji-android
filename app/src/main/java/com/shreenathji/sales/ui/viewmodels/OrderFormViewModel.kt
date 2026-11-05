@@ -29,187 +29,6 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 /** Why Save order is disabled, or null when the form can be submitted. */
-data class OrderSubmitBlockReason(
-    val message: String,
-    val isWarning: Boolean = false
-)
-
-/** Snapshot shown on the post-submit success dialog (form is reset before the dialog). */
-data class OrderSavedSummary(
-    val orderId: String,
-    val partyName: String,
-    val totalMeters: Double,
-    val rates: List<Double>
-)
-
-data class ColorSlotDraft(
-    val id: String = UUID.randomUUID().toString(),
-    val label: String = "",
-    val meterText: String = "",
-    val bottomMeterText: String = "",
-    val meterOverridden: Boolean = false,
-    val bottomMeterOverridden: Boolean = false,
-    /** design | file — for Print qualities */
-    val attachmentKind: String? = null,
-    val attachmentUri: String? = null,
-    val attachmentName: String? = null,
-    val attachmentDesignId: String? = null
-) {
-    val meter: Double get() = (meterText.toDoubleOrNull() ?: 0.0).coerceAtLeast(0.0)
-    val bottomMeter: Double get() = (bottomMeterText.toDoubleOrNull() ?: 0.0).coerceAtLeast(0.0)
-    val hasAttachment: Boolean get() = !attachmentUri.isNullOrBlank()
-}
-
-fun isPrintCategory(category: String?): Boolean = category == "Print"
-
-data class OrderItemDraft(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String = "",
-    val priceText: String = "",
-    val bottomPriceText: String = "",
-    val metersPerColorText: String = "",
-    val bottomMetersPerColorText: String = "",
-    /** Dying | Print — copied from product; custom typed qualities treated as Dying. */
-    val category: String = "Dying",
-    val isMatching: Boolean = false,
-    val multiplier: Int = 1,
-    val isTopBottom: Boolean = false,
-    val colors: List<ColorSlotDraft> = listOf(ColorSlotDraft())
-) {
-    val price: Double get() = priceText.toDoubleOrNull() ?: 0.0
-    val bottomPrice: Double get() = bottomPriceText.toDoubleOrNull() ?: 0.0
-    val metersPerColor: Double get() = metersPerColorText.toDoubleOrNull() ?: 0.0
-    val bottomMetersPerColor: Double get() = bottomMetersPerColorText.toDoubleOrNull() ?: 0.0
-    val baseMeters: Double get() = if (isTopBottom) {
-        colors.sumOf { it.meter + it.bottomMeter }
-    } else {
-        colors.sumOf { it.meter }
-    }
-    val baseTopMeters: Double get() = colors.sumOf { it.meter }
-    val baseBottomMeters: Double get() = colors.sumOf { it.bottomMeter }
-    val effectiveMultiplier: Int get() = if (multiplier > 1) multiplier else if (isMatching) 2 else 1
-    val totalMeters: Double get() = baseMeters * effectiveMultiplier
-    val totalPrice: Double get() = if (isTopBottom) {
-        (baseTopMeters * effectiveMultiplier * price) + (baseBottomMeters * effectiveMultiplier * bottomPrice)
-    } else {
-        totalMeters * price
-    }
-    val isPrint: Boolean get() = isPrintCategory(category)
-}
-
-data class PendingColorAttachTarget(val itemIndex: Int, val colorIndex: Int)
-
-/** Expand quality drafts into one persisted order item per color slot. */
-fun flattenOrderItemDrafts(items: List<OrderItemDraft>): List<OrderItemEntity> {
-    return items
-        .filter { draft ->
-            if (draft.isTopBottom) {
-                draft.name.isNotBlank() && draft.price > 0 && draft.bottomPrice > 0 &&
-                        draft.colors.any { c -> c.meter > 0 || c.bottomMeter > 0 }
-            } else {
-                draft.name.isNotBlank() && draft.price > 0 && draft.colors.any { c -> c.meter > 0 }
-            }
-        }
-        .flatMap { draft ->
-            val print = draft.isPrint
-            val mult = draft.effectiveMultiplier
-            if (draft.isTopBottom) {
-                draft.colors.filter { it.meter > 0 || it.bottomMeter > 0 }.flatMap { slot ->
-                    val notes = when {
-                        print && slot.hasAttachment -> {
-                            if (slot.attachmentKind == "design") {
-                                slot.attachmentName?.ifBlank { null } ?: "Design"
-                            } else {
-                                "Photo"
-                            }
-                        }
-                        !print -> slot.label.trim().ifBlank { null }
-                        else -> null
-                    }
-                    val setGroupId = UUID.randomUUID().toString()
-                    val pairList = mutableListOf<OrderItemEntity>()
-                    if (slot.meter > 0) {
-                        val cutTop = slot.meter
-                        val totalTop = cutTop * mult
-                        pairList.add(
-                            OrderItemEntity(
-                                id = UUID.randomUUID().toString(),
-                                orderId = "",
-                                productName = "${draft.name.trim()} (Top)",
-                                meter = totalTop,
-                                price = draft.price,
-                                totalPrice = totalTop * draft.price,
-                                notes = notes,
-                                designId = if (print) slot.attachmentDesignId else null,
-                                imageUrl = if (print) slot.attachmentUri else null,
-                                isMatching = mult > 1,
-                                multiplier = mult,
-                                cutMeter = cutTop,
-                                component = "TOP",
-                                setGroupId = setGroupId
-                            )
-                        )
-                    }
-                    if (slot.bottomMeter > 0) {
-                        val cutBottom = slot.bottomMeter
-                        val totalBottom = cutBottom * mult
-                        pairList.add(
-                            OrderItemEntity(
-                                id = UUID.randomUUID().toString(),
-                                orderId = "",
-                                productName = "${draft.name.trim()} (Bottom)",
-                                meter = totalBottom,
-                                price = draft.bottomPrice,
-                                totalPrice = totalBottom * draft.bottomPrice,
-                                notes = notes,
-                                designId = if (print) slot.attachmentDesignId else null,
-                                imageUrl = if (print) slot.attachmentUri else null,
-                                isMatching = mult > 1,
-                                multiplier = mult,
-                                cutMeter = cutBottom,
-                                component = "BOTTOM",
-                                setGroupId = setGroupId
-                            )
-                        )
-                    }
-                    pairList
-                }
-            } else {
-                draft.colors.filter { it.meter > 0 }.map { slot ->
-                    val notes = when {
-                        print && slot.hasAttachment -> {
-                            if (slot.attachmentKind == "design") {
-                                slot.attachmentName?.ifBlank { null } ?: "Design"
-                            } else {
-                                "Photo"
-                            }
-                        }
-                        !print -> slot.label.trim().ifBlank { null }
-                        else -> null
-                    }
-                    val cutMeter = slot.meter
-                    val totalMeter = cutMeter * mult
-                    OrderItemEntity(
-                        id = UUID.randomUUID().toString(),
-                        orderId = "",
-                        productName = draft.name.trim(),
-                        meter = totalMeter,
-                        price = draft.price,
-                        totalPrice = totalMeter * draft.price,
-                        notes = notes,
-                        designId = if (print) slot.attachmentDesignId else null,
-                        imageUrl = if (print) slot.attachmentUri else null,
-                        isMatching = mult > 1,
-                        multiplier = mult,
-                        cutMeter = cutMeter,
-                        component = null,
-                        setGroupId = null
-                    )
-                }
-            }
-        }
-}
-
 class OrderFormViewModel(
     private val repository: SalesRepository,
     private val authManager: AuthManager,
@@ -444,127 +263,20 @@ class OrderFormViewModel(
     }
 
     fun selectProductForItem(index: Int, product: ProductEntity) {
-        val category = if (product.category == "Print") "Print" else "Dying"
-        val print = isPrintCategory(category)
-        val mult = if (product.matchingMultiplier > 1) product.matchingMultiplier else if (product.isMatching) 2 else 1
-        val isTopBottom = product.isTopBottom
-        updateItemAt(index) { item ->
-            val bp = if (isTopBottom) {
-                (product.defaultRateBottom ?: product.defaultRate).toString()
-            } else if (item.bottomPriceText.isNotBlank()) {
-                item.bottomPriceText
-            } else {
-                product.defaultRate.toString()
-            }
-            item.copy(
-                name = product.name,
-                priceText = product.defaultRate.toString(),
-                bottomPriceText = bp,
-                category = category,
-                isMatching = mult > 1,
-                multiplier = mult,
-                isTopBottom = isTopBottom,
-                colors = item.colors.map { slot ->
-                    if (print) {
-                        slot.copy(label = "")
-                    } else {
-                        slot.copy(
-                            attachmentKind = null,
-                            attachmentDesignId = null,
-                            attachmentUri = null,
-                            attachmentName = null
-                        )
-                    }
-                }
-            )
-        }
+        updateItemAt(index) { it.withProduct(product) }
     }
 
     fun toggleMatching(index: Int) {
-        updateItemAt(index) { item ->
-            val curr = item.effectiveMultiplier
-            val next = when (curr) {
-                1 -> 2
-                2 -> 4
-                else -> 1
-            }
-            item.copy(
-                isMatching = next > 1,
-                multiplier = next
-            )
-        }
+        updateItemAt(index) { it.withNextMatching() }
     }
 
     fun toggleTopBottom(index: Int) {
-        updateItemAt(index) { item ->
-            val next = !item.isTopBottom
-            val bp = if (next && item.bottomPriceText.isBlank()) item.priceText else item.bottomPriceText
-            val bm = if (next && item.bottomMetersPerColorText.isBlank()) item.metersPerColorText else item.bottomMetersPerColorText
-            val colors = item.colors.map { slot ->
-                if (next && slot.bottomMeterText.isBlank() && !slot.bottomMeterOverridden) {
-                    slot.copy(bottomMeterText = slot.meterText)
-                } else slot
-            }
-            item.copy(
-                isTopBottom = next,
-                bottomPriceText = bp,
-                bottomMetersPerColorText = bm,
-                colors = colors
-            )
-        }
+        updateItemAt(index) { it.withToggledTopBottom() }
     }
 
     fun updateItemName(index: Int, name: String) {
-        val matched = products.value.find {
-            it.name.equals(name.trim(), ignoreCase = true)
-        }
-        if (matched != null) {
-            val category = if (matched.category == "Print") "Print" else "Dying"
-            val print = isPrintCategory(category)
-            val mult = if (matched.matchingMultiplier > 1) matched.matchingMultiplier else if (matched.isMatching) 2 else 1
-            val isTopBottom = matched.isTopBottom
-            val bp = if (isTopBottom) {
-                (matched.defaultRateBottom ?: matched.defaultRate).toString()
-            } else ""
-            updateItemAt(index) { item ->
-                item.copy(
-                    name = name,
-                    priceText = if (item.priceText.isBlank()) matched.defaultRate.toString() else item.priceText,
-                    bottomPriceText = if (bp.isNotBlank()) bp else if (item.bottomPriceText.isNotBlank()) item.bottomPriceText else item.priceText,
-                    category = category,
-                    isMatching = mult > 1,
-                    multiplier = mult,
-                    isTopBottom = isTopBottom,
-                    colors = item.colors.map { slot ->
-                        if (print) {
-                            slot.copy(label = "")
-                        } else {
-                            slot.copy(
-                                attachmentKind = null,
-                                attachmentDesignId = null,
-                                attachmentUri = null,
-                                attachmentName = null
-                            )
-                        }
-                    }
-                )
-            }
-            return
-        }
-        updateItemAt(index) { item ->
-            item.copy(
-                name = name,
-                category = "Dying",
-                colors = item.colors.map { slot ->
-                    slot.copy(
-                        attachmentKind = null,
-                        attachmentDesignId = null,
-                        attachmentUri = null,
-                        attachmentName = null
-                    )
-                }
-            )
-        }
+        val matched = products.value.find { it.name.equals(name.trim(), ignoreCase = true) }
+        updateItemAt(index) { it.withTypedName(name, matched) }
     }
 
     fun updateItemPrice(index: Int, price: String) {
@@ -576,73 +288,28 @@ class OrderFormViewModel(
     }
 
     fun updateMetersPerColor(index: Int, value: String) {
-        updateItemAt(index) { item ->
-            val colors = item.colors.map { slot ->
-                if (!slot.meterOverridden) {
-                    slot.copy(meterText = value)
-                } else {
-                    slot
-                }
-            }
-            item.copy(metersPerColorText = value, colors = colors)
-        }
+        updateItemAt(index) { it.withMetersPerColor(value) }
     }
 
     fun updateBottomMetersPerColor(index: Int, value: String) {
-        updateItemAt(index) { item ->
-            val colors = item.colors.map { slot ->
-                if (!slot.bottomMeterOverridden) {
-                    slot.copy(bottomMeterText = value)
-                } else {
-                    slot
-                }
-            }
-            item.copy(bottomMetersPerColorText = value, colors = colors)
-        }
+        updateItemAt(index) { it.withBottomMetersPerColor(value) }
     }
 
     /**
      * Resize color slots. Empty / invalid [countRaw] is ignored so the UI can allow backspace.
      */
     fun setColorCount(index: Int, countRaw: String) {
-        if (countRaw.isBlank()) return
         val parsed = countRaw.toIntOrNull() ?: return
         if (parsed < 1) return
-        val count = parsed.coerceAtMost(50)
-
-        updateItemAt(index) { item ->
-            if (count == item.colors.size) return@updateItemAt item
-            val next = if (count > item.colors.size) {
-                item.colors + List(count - item.colors.size) {
-                    ColorSlotDraft(
-                        meterText = item.metersPerColorText,
-                        bottomMeterText = item.bottomMetersPerColorText
-                    )
-                }
-            } else {
-                item.colors.take(count)
-            }
-            item.copy(colors = next)
-        }
+        updateItemAt(index) { it.withColorCount(parsed.coerceAtMost(MAX_COLOR_COUNT)) }
     }
 
     fun addColor(index: Int) {
-        updateItemAt(index) { item ->
-            if (item.colors.size >= 50) return@updateItemAt item
-            item.copy(
-                colors = item.colors + ColorSlotDraft(
-                    meterText = item.metersPerColorText,
-                    bottomMeterText = item.bottomMetersPerColorText
-                )
-            )
-        }
+        updateItemAt(index) { it.withColorAdded() }
     }
 
     fun removeColor(itemIndex: Int, colorIndex: Int) {
-        updateItemAt(itemIndex) { item ->
-            if (item.colors.size <= 1) return@updateItemAt item
-            item.copy(colors = item.colors.filterIndexed { i, _ -> i != colorIndex })
-        }
+        updateItemAt(itemIndex) { it.withColorRemoved(colorIndex) }
     }
 
     fun updateColorLabel(itemIndex: Int, colorIndex: Int, label: String) {
