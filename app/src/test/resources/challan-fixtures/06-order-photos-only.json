@@ -1,0 +1,14 @@
+{
+  "description": "Single item, photos attached to the order only (one with spaces) -> swatches, note 'N Swatches Below'",
+  "order": { "notes": null, "image_urls": ["https://x/o1.jpg", " https://x/o2.jpg "] },
+  "items": [
+    { "id": "f1", "product_name": "Linen Plain", "meter": 120, "price": 90 }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Linen Plain", "notes": "2 Swatches Below", "imageUrl": null, "meter": 120, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 90, "colorCount": 1 }
+    ],
+    "swatches": ["https://x/o1.jpg", "https://x/o2.jpg"],
+    "pages": [{ "kind": "challan", "rows": [1], "swatches": 2 }]
+  }
+}

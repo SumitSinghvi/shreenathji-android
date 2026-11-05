@@ -1,0 +1,16 @@
+{
+  "description": "3 colours, same meters, same rate -> one combined row, photos go to swatches",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "a1", "product_name": "Cotton Dyed 44\"", "meter": 100, "price": 65, "notes": "Red", "image_url": "https://x/p1.jpg" },
+    { "id": "a2", "product_name": "Cotton Dyed 44\"", "meter": 100, "price": 65, "notes": "Blue", "image_url": "https://x/p2.jpg" },
+    { "id": "a3", "product_name": "Cotton Dyed 44\"", "meter": 100, "price": 65, "notes": "Photo", "image_url": "https://x/p3.jpg" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Cotton Dyed 44\"", "notes": "3 Swatches Below", "imageUrl": null, "meter": 300, "multiplier": 1, "isMatching": false, "cutMeter": 100, "rate": 65, "colorCount": 3 }
+    ],
+    "swatches": ["https://x/p1.jpg", "https://x/p2.jpg", "https://x/p3.jpg"],
+    "pages": [{ "kind": "challan", "rows": [1], "swatches": 3 }]
+  }
+}

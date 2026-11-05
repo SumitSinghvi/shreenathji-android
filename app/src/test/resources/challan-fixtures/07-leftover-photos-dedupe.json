@@ -1,0 +1,17 @@
+{
+  "description": "Item photos + order photos: duplicates (incl. trailing space) removed, photo already in a row skipped, leftovers join the swatch grid",
+  "order": { "notes": null, "image_urls": ["https://x/m1.jpg", "https://x/v1.jpg", "https://x/o9.jpg", "https://x/o9.jpg"] },
+  "items": [
+    { "id": "g1", "product_name": "Muslin", "meter": 70, "price": 60, "image_url": "https://x/m1.jpg " },
+    { "id": "g2", "product_name": "Muslin", "meter": 70, "price": 60, "image_url": "https://x/m2.jpg" },
+    { "id": "g3", "product_name": "Velvet", "meter": 25, "price": 300, "image_url": "https://x/v1.jpg" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Muslin", "notes": "2 Swatches Below", "imageUrl": null, "meter": 140, "multiplier": 1, "isMatching": false, "cutMeter": 70, "rate": 60, "colorCount": 2 },
+      { "sNo": 2, "productName": "Velvet", "notes": null, "imageUrl": "https://x/v1.jpg", "meter": 25, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 300, "colorCount": 1 }
+    ],
+    "swatches": ["https://x/m1.jpg", "https://x/m2.jpg", "https://x/o9.jpg"],
+    "pages": [{ "kind": "challan", "rows": [1, 2], "swatches": 3 }]
+  }
+}

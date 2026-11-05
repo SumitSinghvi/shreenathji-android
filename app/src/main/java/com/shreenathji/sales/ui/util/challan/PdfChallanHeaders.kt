@@ -230,7 +230,7 @@ internal fun ChallanLayout.drawTableHeader(canvas: Canvas, tableTop: Float) {
     canvas.drawText("Product / Fabric Name", col2X + 8f, tableTop + 13f, paint)
 
     paint.textAlign = Paint.Align.CENTER
-    canvas.drawText(if (hasAnyRowImage) "Photo" else "Color / Notes", col3X + (colPhotoW / 2), tableTop + 13f, paint)
+    canvas.drawText(if (photoDim > 0f || swatches.isNotEmpty()) "Photo" else "Color / Notes", col3X + (colPhotoW / 2), tableTop + 13f, paint)
 
     paint.textAlign = Paint.Align.RIGHT
     canvas.drawText("Rate", col5X - 8f, tableTop + 13f, paint)

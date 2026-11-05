@@ -13,7 +13,6 @@ import android.print.PrintManager
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.shreenathji.sales.data.local.entities.OrderWithItems
-import com.shreenathji.sales.ui.util.challan.HtmlChallanGenerator
 import com.shreenathji.sales.ui.util.challan.PdfChallanGenerator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,10 +108,6 @@ object OrderChallanPrintHelper {
      */
     fun generatePdf(context: Context, orderWithItems: OrderWithItems): File {
         return PdfChallanGenerator.generatePdf(context, orderWithItems)
-    }
-
-    fun generateChallanHtml(orderWithItems: OrderWithItems): String {
-        return HtmlChallanGenerator.generateChallanHtml(orderWithItems)
     }
 }
 

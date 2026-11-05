@@ -1,0 +1,16 @@
+{
+  "description": "Same quality + same meters but different rates -> never merged (Android bug before)",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "b1", "product_name": "Rayon Plain", "meter": 50, "price": 70, "notes": "Black" },
+    { "id": "b2", "product_name": "Rayon Plain", "meter": 50, "price": 75, "notes": "White" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Rayon Plain", "notes": "Black", "imageUrl": null, "meter": 50, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 70, "colorCount": 1 },
+      { "sNo": 2, "productName": "Rayon Plain", "notes": "White", "imageUrl": null, "meter": 50, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 75, "colorCount": 1 }
+    ],
+    "swatches": [],
+    "pages": [{ "kind": "challan", "rows": [1, 2], "swatches": 0 }]
+  }
+}

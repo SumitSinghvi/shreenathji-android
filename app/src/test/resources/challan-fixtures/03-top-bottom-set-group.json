@@ -1,0 +1,20 @@
+{
+  "description": "Top/Bottom sets by set_group_id, entered out of order, different top/bottom rates -> Top1, Bottom1, Top2, Bottom2",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "t1", "product_name": "Silk Set (Top)", "meter": 30, "price": 120, "image_url": "https://x/i1.jpg", "set_group_id": "sg1" },
+    { "id": "t2", "product_name": "Silk Set (Top)", "meter": 30, "price": 120, "image_url": "https://x/i2.jpg", "set_group_id": "sg2" },
+    { "id": "b1", "product_name": "Silk Set (Bottom)", "meter": 25, "price": 90, "image_url": "https://x/i1.jpg", "set_group_id": "sg1" },
+    { "id": "b2", "product_name": "Silk Set (Bottom)", "meter": 25, "price": 90, "image_url": "https://x/i2.jpg", "set_group_id": "sg2" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Silk Set (Top)", "notes": null, "imageUrl": "https://x/i1.jpg", "meter": 30, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 120, "colorCount": 1 },
+      { "sNo": 2, "productName": "Silk Set (Bottom)", "notes": null, "imageUrl": "https://x/i1.jpg", "meter": 25, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 90, "colorCount": 1 },
+      { "sNo": 3, "productName": "Silk Set (Top)", "notes": null, "imageUrl": "https://x/i2.jpg", "meter": 30, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 120, "colorCount": 1 },
+      { "sNo": 4, "productName": "Silk Set (Bottom)", "notes": null, "imageUrl": "https://x/i2.jpg", "meter": 25, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 90, "colorCount": 1 }
+    ],
+    "swatches": [],
+    "pages": [{ "kind": "challan", "rows": [1, 2, 3, 4], "swatches": 0 }]
+  }
+}

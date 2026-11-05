@@ -1,0 +1,178 @@
+{
+  "description": "12 colour photos + 20 order photos = 32 swatches; with notes, 4 full swatch rows (20) fit under the footer, 12 continue on a swatch page",
+  "order": {
+    "notes": "Deliver before Diwali",
+    "image_urls": [
+      "https://x/q01.jpg",
+      "https://x/q02.jpg",
+      "https://x/q03.jpg",
+      "https://x/q04.jpg",
+      "https://x/q05.jpg",
+      "https://x/q06.jpg",
+      "https://x/q07.jpg",
+      "https://x/q08.jpg",
+      "https://x/q09.jpg",
+      "https://x/q10.jpg",
+      "https://x/q11.jpg",
+      "https://x/q12.jpg",
+      "https://x/q13.jpg",
+      "https://x/q14.jpg",
+      "https://x/q15.jpg",
+      "https://x/q16.jpg",
+      "https://x/q17.jpg",
+      "https://x/q18.jpg",
+      "https://x/q19.jpg",
+      "https://x/q20.jpg"
+    ]
+  },
+  "items": [
+    {
+      "id": "r0",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r01.jpg"
+    },
+    {
+      "id": "r1",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r02.jpg"
+    },
+    {
+      "id": "r2",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r03.jpg"
+    },
+    {
+      "id": "r3",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r04.jpg"
+    },
+    {
+      "id": "r4",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r05.jpg"
+    },
+    {
+      "id": "r5",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r06.jpg"
+    },
+    {
+      "id": "r6",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r07.jpg"
+    },
+    {
+      "id": "r7",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r08.jpg"
+    },
+    {
+      "id": "r8",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r09.jpg"
+    },
+    {
+      "id": "r9",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r10.jpg"
+    },
+    {
+      "id": "r10",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r11.jpg"
+    },
+    {
+      "id": "r11",
+      "product_name": "Rayon Print 58\"",
+      "meter": 50,
+      "price": 80,
+      "image_url": "https://x/r12.jpg"
+    }
+  ],
+  "expected": {
+    "rows": [
+      {
+        "sNo": 1,
+        "productName": "Rayon Print 58\"",
+        "notes": "12 Swatches Below",
+        "imageUrl": null,
+        "meter": 600,
+        "multiplier": 1,
+        "isMatching": false,
+        "cutMeter": 50,
+        "rate": 80,
+        "colorCount": 12
+      }
+    ],
+    "swatches": [
+      "https://x/r01.jpg",
+      "https://x/r02.jpg",
+      "https://x/r03.jpg",
+      "https://x/r04.jpg",
+      "https://x/r05.jpg",
+      "https://x/r06.jpg",
+      "https://x/r07.jpg",
+      "https://x/r08.jpg",
+      "https://x/r09.jpg",
+      "https://x/r10.jpg",
+      "https://x/r11.jpg",
+      "https://x/r12.jpg",
+      "https://x/q01.jpg",
+      "https://x/q02.jpg",
+      "https://x/q03.jpg",
+      "https://x/q04.jpg",
+      "https://x/q05.jpg",
+      "https://x/q06.jpg",
+      "https://x/q07.jpg",
+      "https://x/q08.jpg",
+      "https://x/q09.jpg",
+      "https://x/q10.jpg",
+      "https://x/q11.jpg",
+      "https://x/q12.jpg",
+      "https://x/q13.jpg",
+      "https://x/q14.jpg",
+      "https://x/q15.jpg",
+      "https://x/q16.jpg",
+      "https://x/q17.jpg",
+      "https://x/q18.jpg",
+      "https://x/q19.jpg",
+      "https://x/q20.jpg"
+    ],
+    "pages": [
+      {
+        "kind": "challan",
+        "rows": [
+          1
+        ],
+        "swatches": 20
+      },
+      {
+        "kind": "swatches",
+        "rows": [],
+        "swatches": 12
+      }
+    ]
+  }
+}

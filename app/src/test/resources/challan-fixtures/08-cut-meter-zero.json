@@ -1,0 +1,18 @@
+{
+  "description": "cut_meter 0 counts as missing: matching rows recalculate meter / multiplier, plain rows show no cut",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "h1", "product_name": "Poplin", "meter": 100, "price": 40, "multiplier": 2, "cut_meter": 0, "notes": "Sky" },
+    { "id": "h2", "product_name": "Poplin", "meter": 120, "price": 40, "multiplier": 2, "cut_meter": 0, "notes": "Lemon" },
+    { "id": "h3", "product_name": "Cambric", "meter": 30, "price": 35, "cut_meter": 0 }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Poplin", "notes": "Sky", "imageUrl": null, "meter": 100, "multiplier": 2, "isMatching": true, "cutMeter": 50, "rate": 40, "colorCount": 1 },
+      { "sNo": 2, "productName": "Poplin", "notes": "Lemon", "imageUrl": null, "meter": 120, "multiplier": 2, "isMatching": true, "cutMeter": 60, "rate": 40, "colorCount": 1 },
+      { "sNo": 3, "productName": "Cambric", "notes": null, "imageUrl": null, "meter": 30, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 35, "colorCount": 1 }
+    ],
+    "swatches": [],
+    "pages": [{ "kind": "challan", "rows": [1, 2, 3], "swatches": 0 }]
+  }
+}

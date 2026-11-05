@@ -1,0 +1,19 @@
+{
+  "description": "4x matching with equal meters (combined) + 2x matching with different meters (row per item, cut = meter / 2)",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "e1", "product_name": "Georgette Print", "meter": 160, "price": 55, "multiplier": 4, "cut_meter": 40, "notes": "Photo", "image_url": "https://x/g1.jpg" },
+    { "id": "e2", "product_name": "Georgette Print", "meter": 160, "price": 55, "multiplier": 4, "cut_meter": 40, "notes": "Photo", "image_url": "https://x/g2.jpg" },
+    { "id": "e3", "product_name": "Chiffon", "meter": 60, "price": 48, "is_matching": true, "notes": "Pink" },
+    { "id": "e4", "product_name": "Chiffon", "meter": 80, "price": 48, "is_matching": true, "notes": "Green" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Georgette Print", "notes": "2 Swatches Below", "imageUrl": null, "meter": 320, "multiplier": 4, "isMatching": true, "cutMeter": 40, "rate": 55, "colorCount": 2 },
+      { "sNo": 2, "productName": "Chiffon", "notes": "Pink", "imageUrl": null, "meter": 60, "multiplier": 2, "isMatching": true, "cutMeter": 30, "rate": 48, "colorCount": 1 },
+      { "sNo": 3, "productName": "Chiffon", "notes": "Green", "imageUrl": null, "meter": 80, "multiplier": 2, "isMatching": true, "cutMeter": 40, "rate": 48, "colorCount": 1 }
+    ],
+    "swatches": ["https://x/g1.jpg", "https://x/g2.jpg"],
+    "pages": [{ "kind": "challan", "rows": [1, 2, 3], "swatches": 2 }]
+  }
+}

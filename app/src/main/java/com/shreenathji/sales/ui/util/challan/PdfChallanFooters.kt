@@ -144,7 +144,7 @@ internal fun ChallanLayout.drawLastPageFooter(canvas: Canvas, tableTop: Float, t
     paint.textSize = 7.5f
     paint.color = mutedGrayColor
     paint.textAlign = Paint.Align.LEFT
-    val footerNoticeText = if (!swatchesFitOnLastPage && allSwatches.isNotEmpty()) {
+    val footerNoticeText = if (swatchesContinue) {
         "Computer generated order challan • Swatches continued on next page"
     } else {
         "Computer generated order challan"
@@ -155,40 +155,6 @@ internal fun ChallanLayout.drawLastPageFooter(canvas: Canvas, tableTop: Float, t
         paint.textAlign = Paint.Align.RIGHT
         canvas.drawText("Page $pageNumber of $totalPages", tableRight, footerY + 10f, paint)
         paint.textAlign = Paint.Align.LEFT
-    }
-
-    // 6. Bottom Swatches (if space permits on this page)
-    if (swatchesFitOnLastPage) {
-        var swatchY = footerY + 18f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        paint.textSize = 9f
-        paint.color = darkSlateColor
-        paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("COLOR & DESIGN SWATCHES (${allSwatches.size})", marginX, swatchY, paint)
-        swatchY += 8f
-
-        val swatchGapX = (contentWidth - (swatchCols * swatchCardW)) / (swatchCols - 1)
-
-        allSwatches.forEachIndexed { sIdx, sUrl ->
-            val rowIdx = sIdx / swatchCols
-            val colIdx = sIdx % swatchCols
-            val sLeft = marginX + (colIdx * (swatchCardW + swatchGapX))
-            val sTop = swatchY + (rowIdx * (swatchCardH + swatchGapY))
-            val cardRect = RectF(sLeft, sTop, sLeft + swatchCardW, sTop + swatchCardH)
-
-            drawSwatchCard(
-                canvas = canvas,
-                paint = paint,
-                context = context,
-                imageUrl = sUrl,
-                label = "Design #${sIdx + 1}",
-                cardRect = cardRect,
-                softBgColor = softBgColor,
-                lightGrayBorder = lightGrayBorder,
-                darkSlateColor = darkSlateColor,
-                mutedGrayColor = mutedGrayColor
-            )
-        }
     }
 }
 

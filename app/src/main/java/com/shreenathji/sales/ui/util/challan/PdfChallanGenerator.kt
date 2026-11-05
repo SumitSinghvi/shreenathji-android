@@ -15,6 +15,7 @@ import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.shreenathji.sales.data.local.entities.OrderEntity
 import com.shreenathji.sales.data.local.entities.OrderWithItems
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -38,30 +39,29 @@ object PdfChallanGenerator {
         val pdfDocument = PdfDocument()
 
         with(layout) {
-            challanSlices.forEachIndexed { cIdx, slice ->
-                val pageNumber = cIdx + 1
-                val isFirstChallanPage = cIdx == 0
-                val isLastChallanPage = cIdx == totalChallanPages - 1
-
+            pages.forEachIndexed { idx, challanPage ->
+                val pageNumber = idx + 1
                 val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNumber).create()
                 val page = pdfDocument.startPage(pageInfo)
                 val canvas = page.canvas
 
-                val tableTop = if (isFirstChallanPage) drawFirstPageHeader(canvas) else drawContinuationHeader(canvas, pageNumber)
-                drawTableHeader(canvas, tableTop)
-                val itemsTableBottom = drawRows(canvas, slice, tableTop)
-
-                if (isLastChallanPage) {
-                    drawLastPageFooter(canvas, tableTop, itemsTableBottom, itemsTableBottom, pageNumber)
+                val top = if (idx == 0) drawFirstPageHeader(canvas) else drawContinuationHeader(canvas, pageNumber)
+                var swatchTop = top
+                if (challanPage.kind == ChallanPageKind.CHALLAN) {
+                    drawTableHeader(canvas, top)
+                    val itemsTableBottom = drawRows(canvas, challanPage.rows, top)
+                    if (challanPage.isLastChallan) {
+                        drawLastPageFooter(canvas, top, itemsTableBottom, itemsTableBottom, pageNumber)
+                        swatchTop = itemsTableBottom + ChallanPagination.footerHeight(hasNotes)
+                    } else {
+                        drawContinuationFooter(canvas, top, itemsTableBottom, pageNumber)
+                    }
                 } else {
-                    drawContinuationFooter(canvas, tableTop, itemsTableBottom, pageNumber)
+                    drawSwatchPageFooter(canvas, pageNumber)
                 }
+                drawSwatchGrid(canvas, challanPage.swatches, swatchTop, continued = challanPage.kind == ChallanPageKind.SWATCHES)
 
                 pdfDocument.finishPage(page)
-            }
-
-            if (!swatchesFitOnLastPage && allSwatches.isNotEmpty()) {
-                drawSwatchPages(pdfDocument)
             }
         }
 
@@ -75,8 +75,19 @@ object PdfChallanGenerator {
     }
 
     fun extractImages(orderWithItems: OrderWithItems): List<String> {
+        val images = extractOrderImages(orderWithItems.order).toMutableList()
+        for (item in orderWithItems.items) {
+            val u = item.imageUrl?.trim()
+            if (!u.isNullOrEmpty() && !images.contains(u)) {
+                images.add(u)
+            }
+        }
+        return images
+    }
+
+    /** Photos attached to the order itself (same input the web passes as `image_urls`). */
+    fun extractOrderImages(order: OrderEntity): List<String> {
         val images = mutableListOf<String>()
-        val order = orderWithItems.order
 
         if (!order.imageUrisJson.isNullOrBlank()) {
             try {
@@ -95,13 +106,6 @@ object PdfChallanGenerator {
                 if (trimmed.startsWith("http") || trimmed.startsWith("content:") || trimmed.startsWith("file:")) {
                     images.add(trimmed)
                 }
-            }
-        }
-
-        for (item in orderWithItems.items) {
-            val u = item.imageUrl?.trim()
-            if (!u.isNullOrEmpty() && !images.contains(u)) {
-                images.add(u)
             }
         }
 

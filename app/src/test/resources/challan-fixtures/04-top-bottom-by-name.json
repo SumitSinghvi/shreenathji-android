@@ -1,0 +1,20 @@
+{
+  "description": "Top/Bottom without set group, no photos, paired by design_id; equal meters must NOT merge into one row",
+  "order": { "notes": null, "image_urls": [] },
+  "items": [
+    { "id": "t1", "product_name": "Crepe Suit (Top)", "meter": 40, "price": 100, "notes": "Maroon", "design_id": "d1" },
+    { "id": "t2", "product_name": "Crepe Suit (Top)", "meter": 40, "price": 100, "notes": "Navy", "design_id": "d2" },
+    { "id": "b2", "product_name": "Crepe Suit (Bottom)", "meter": 40, "price": 100, "notes": "Navy", "design_id": "d2" },
+    { "id": "b1", "product_name": "Crepe Suit (Bottom)", "meter": 40, "price": 100, "notes": "Maroon", "design_id": "d1" }
+  ],
+  "expected": {
+    "rows": [
+      { "sNo": 1, "productName": "Crepe Suit (Top)", "notes": "Maroon", "imageUrl": null, "meter": 40, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 100, "colorCount": 1 },
+      { "sNo": 2, "productName": "Crepe Suit (Bottom)", "notes": "Maroon", "imageUrl": null, "meter": 40, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 100, "colorCount": 1 },
+      { "sNo": 3, "productName": "Crepe Suit (Top)", "notes": "Navy", "imageUrl": null, "meter": 40, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 100, "colorCount": 1 },
+      { "sNo": 4, "productName": "Crepe Suit (Bottom)", "notes": "Navy", "imageUrl": null, "meter": 40, "multiplier": 1, "isMatching": false, "cutMeter": null, "rate": 100, "colorCount": 1 }
+    ],
+    "swatches": [],
+    "pages": [{ "kind": "challan", "rows": [1, 2, 3, 4], "swatches": 0 }]
+  }
+}

@@ -2,6 +2,13 @@ package com.shreenathji.sales.ui.util.challan
 
 import com.shreenathji.sales.data.local.entities.OrderItemEntity
 
+/*
+ * Challan grouping rules. MUST stay identical to the dashboard's
+ * `src/components/orders/orderPrintData.ts`. Reference samples:
+ * `app/src/test/resources/challan-fixtures/` (copied from the dashboard repo by
+ * `scripts/sync-fixtures.sh`).
+ */
+
 data class ChallanPrintRow(
     val sNo: Int,
     val productName: String,
@@ -17,169 +24,152 @@ data class ChallanPrintRow(
 
 data class ChallanGroupedData(
     val rows: List<ChallanPrintRow>,
-    val bottomImages: List<String>,
-    val remainingImages: List<String>
+    /** Every photo not shown inside a table row — drawn in the swatch grid. */
+    val swatches: List<String>
 )
 
 object ChallanDataProcessor {
+
+    private val TOP_BOTTOM_RE = Regex("(?i)\\((top|bottom)\\)")
+    private val TOP_RE = Regex("(?i)\\(top\\)")
+    private val BOTTOM_RE = Regex("(?i)\\(bottom\\)")
+
+    private fun cleanUrl(url: String?): String? = url?.trim()?.ifEmpty { null }
+
+    private fun cleanNote(note: String?): String? =
+        if (!note.isNullOrEmpty() && !note.trim().equals("Photo", ignoreCase = true)) note else null
+
+    private fun multiplierOf(item: OrderItemEntity): Int =
+        if (item.multiplier > 1) item.multiplier else if (item.isMatching) 2 else 1
+
+    /** Cut meter 0 counts as missing. */
+    private fun cutOf(item: OrderItemEntity): Double? = item.cutMeter?.takeIf { it != 0.0 }
+
+    /** Rule 1: Top/Bottom pairs stay together (set group, else same name + same photo/design). */
+    private fun orderTopBottomPairs(items: List<OrderItemEntity>): List<OrderItemEntity> {
+        val ordered = mutableListOf<OrderItemEntity>()
+        val visited = mutableSetOf<Int>()
+
+        items.forEachIndexed { i, item ->
+            if (!visited.add(i)) return@forEachIndexed
+            ordered.add(item)
+
+            if (!item.setGroupId.isNullOrBlank()) {
+                for (j in (i + 1) until items.size) {
+                    if (j !in visited && items[j].setGroupId == item.setGroupId) {
+                        visited.add(j)
+                        ordered.add(items[j])
+                    }
+                }
+                return@forEachIndexed
+            }
+
+            if (!TOP_RE.containsMatchIn(item.productName)) return@forEachIndexed
+            val baseName = item.productName.replace(TOP_RE, "").trim().lowercase()
+            val img = cleanUrl(item.imageUrl)
+            val candidates = ((i + 1) until items.size).filter { j ->
+                val other = items[j]
+                j !in visited &&
+                    BOTTOM_RE.containsMatchIn(other.productName) &&
+                    other.productName.replace(BOTTOM_RE, "").trim().lowercase() == baseName
+            }
+            // Match only on identifiers that are actually set; else the first same-name bottom.
+            val match = candidates.firstOrNull { j ->
+                (img != null && cleanUrl(items[j].imageUrl) == img) ||
+                    (!item.designId.isNullOrEmpty() && items[j].designId == item.designId)
+            } ?: if (img == null && item.designId.isNullOrEmpty()) candidates.firstOrNull() else null
+            if (match != null) {
+                visited.add(match)
+                ordered.add(items[match])
+            }
+        }
+        return ordered
+    }
+
+    private class Group(
+        val productName: String,
+        val multiplier: Int,
+        val isTopBottom: Boolean,
+        val items: MutableList<OrderItemEntity> = mutableListOf()
+    )
 
     fun processOrderItemsForPrint(
         items: List<OrderItemEntity>,
         orderImageUrls: List<String> = emptyList()
     ): ChallanGroupedData {
-        // 1. Sort items so Top & Bottom pairs stay together:
-        val orderedItems = mutableListOf<OrderItemEntity>()
-        val visited = mutableSetOf<String>()
+        // Rule 2: group by base quality + multiplier (+ rate for normal fabrics).
+        val groups = mutableListOf<Group>()
+        val groupByKey = mutableMapOf<String, Group>()
 
-        for (i in items.indices) {
-            val item = items[i]
-            val itemId = item.id.ifEmpty { "idx-$i" }
-            if (visited.contains(itemId)) continue
-
-            visited.add(itemId)
-            orderedItems.add(item)
-
-            if (!item.setGroupId.isNullOrBlank()) {
-                for (j in (i + 1) until items.size) {
-                    val other = items[j]
-                    val otherId = other.id.ifEmpty { "idx-$j" }
-                    if (!visited.contains(otherId) && other.setGroupId == item.setGroupId) {
-                        visited.add(otherId)
-                        orderedItems.add(other)
-                    }
-                }
-            } else {
-                val pLower = item.productName.lowercase()
-                if (pLower.contains("(top)")) {
-                    val baseName = item.productName.replace(Regex("(?i)\\(top\\)"), "").trim().lowercase()
-                    for (j in (i + 1) until items.size) {
-                        val other = items[j]
-                        val otherId = other.id.ifEmpty { "idx-$j" }
-                        val otherLower = other.productName.lowercase()
-                        val otherBase = other.productName.replace(Regex("(?i)\\(bottom\\)"), "").trim().lowercase()
-                        if (!visited.contains(otherId) &&
-                            otherLower.contains("(bottom)") &&
-                            otherBase == baseName &&
-                            (other.imageUrl == item.imageUrl || other.designId == item.designId)
-                        ) {
-                            visited.add(otherId)
-                            orderedItems.add(other)
-                            break
-                        }
-                    }
-                }
-            }
-        }
-
-        // 2. Group by base product quality + multiplier
-        data class TempGroup(
-            val key: String,
-            val productName: String,
-            val multiplier: Int,
-            val isMatching: Boolean,
-            val items: MutableList<OrderItemEntity>
-        )
-
-        val groups = mutableListOf<TempGroup>()
-        val groupByKey = mutableMapOf<String, TempGroup>()
-
-        for (item in orderedItems) {
+        for (item in orderTopBottomPairs(items)) {
             val pName = item.productName.trim().ifEmpty { "Fabric" }
-            val mult = if (item.multiplier > 1) item.multiplier else (if (item.isMatching) 2 else 1)
-            val isTopOrBottom = Regex("(?i)\\((top|bottom)\\)").containsMatchIn(pName)
-            val baseFabricName = pName.replace(Regex("(?i)\\((top|bottom)\\)"), "").trim()
-            val key = if (isTopOrBottom) "${baseFabricName.lowercase()}::topbottom::$mult" else "${pName.lowercase()}::$mult"
-
-            var grp = groupByKey[key]
-            if (grp == null) {
-                grp = TempGroup(
-                    key = key,
-                    productName = if (isTopOrBottom) baseFabricName else pName,
-                    multiplier = mult,
-                    isMatching = mult > 1,
-                    items = mutableListOf()
-                )
-                groupByKey[key] = grp
-                groups.add(grp)
+            val mult = multiplierOf(item)
+            val isTopBottom = TOP_BOTTOM_RE.containsMatchIn(pName)
+            val baseName = pName.replace(TOP_BOTTOM_RE, "").trim()
+            // Top/Bottom: no rate in key so pairs stay in sequence (each row keeps its own rate).
+            val key = if (isTopBottom) {
+                "${baseName.lowercase()}::topbottom::$mult"
+            } else {
+                "${pName.lowercase()}::$mult::${item.price}"
             }
-            grp.items.add(item)
+            groupByKey.getOrPut(key) {
+                Group(if (isTopBottom) baseName else pName, mult, isTopBottom).also { groups.add(it) }
+            }.items.add(item)
         }
 
         val rows = mutableListOf<ChallanPrintRow>()
-        val bottomImages = mutableListOf<String>()
-        val seenBottomUrls = mutableSetOf<String>()
+        val swatches = mutableListOf<String>()
+        val seen = mutableSetOf<String>()
+        fun addSwatch(url: String?) {
+            if (url != null && seen.add(url)) swatches.add(url)
+        }
         var nextSNo = 1
 
         for (grp in groups) {
             val grpItems = grp.items
-            val productName = grp.productName
             val multiplier = grp.multiplier
-            val isMatching = grp.isMatching
-
-            // Condition 1: Multiple colors with the exact same meter
-            val hasMultipleColors = grpItems.size > 1
+            val isMatching = multiplier > 1
             val firstMeter = grpItems.firstOrNull()?.meter ?: 0.0
-            val allMetersEqual = hasMultipleColors && grpItems.all { it.meter == firstMeter }
+            val allMetersEqual = !grp.isTopBottom && grpItems.size > 1 && grpItems.all { it.meter == firstMeter }
 
             if (allMetersEqual) {
-                val totalGrpMeters = grpItems.sumOf { it.meter }
-                val colorCount = grpItems.size
-
-                val grpImages = mutableListOf<String>()
-                grpItems.forEach { it ->
-                    val url = it.imageUrl?.trim()
-                    if (!url.isNullOrEmpty()) {
-                        if (!seenBottomUrls.contains(url)) {
-                            seenBottomUrls.add(url)
-                            bottomImages.add(url)
-                        }
-                        if (!grpImages.contains(url)) {
-                            grpImages.add(url)
-                        }
-                    }
-                }
-
-                // Filter out automated placeholder "Photo"
-                val colorCodes = grpItems
-                    .mapNotNull { it.notes?.trim() }
-                    .filter { it.isNotEmpty() && !it.equals("Photo", ignoreCase = true) }
+                // Rule 3: one combined row; colour photos go to the swatch grid.
+                val grpImages = grpItems.mapNotNull { cleanUrl(it.imageUrl) }
+                grpImages.forEach { addSwatch(it) }
+                val colorCodes = grpItems.mapNotNull { cleanNote(it.notes?.trim()) }
                 val hasPhotos = grpImages.isNotEmpty() || (orderImageUrls.isNotEmpty() && groups.size == 1)
-                val noteText = if (hasPhotos) {
-                    "$colorCount Swatches Below"
-                } else if (colorCodes.isNotEmpty()) {
-                    colorCodes.joinToString(", ")
-                } else {
-                    null
-                }
 
                 rows.add(
                     ChallanPrintRow(
                         sNo = nextSNo++,
-                        productName = productName,
-                        notes = noteText,
+                        productName = grp.productName,
+                        notes = when {
+                            hasPhotos -> "${grpItems.size} Swatches Below"
+                            colorCodes.isNotEmpty() -> colorCodes.joinToString(", ")
+                            else -> null
+                        },
                         imageUrl = null,
-                        meter = totalGrpMeters,
+                        meter = grpItems.sumOf { it.meter },
                         multiplier = multiplier,
                         isMatching = isMatching,
-                        cutMeter = grpItems.firstOrNull()?.cutMeter ?: (firstMeter / multiplier),
-                        rate = grpItems.firstOrNull()?.price ?: 0.0,
-                        colorCount = colorCount
+                        cutMeter = cutOf(grpItems.first()) ?: (firstMeter / multiplier),
+                        rate = grpItems.first().price,
+                        colorCount = grpItems.size
                     )
                 )
             } else {
-                // Condition 2: Different meters or single color (Top/Bottom paired sequence)
+                // Rule 4: one row per item, its own photo in the Photo column.
                 for (it in grpItems) {
-                    val cleanNote = if (!it.notes.isNullOrBlank() && !it.notes.equals("Photo", ignoreCase = true)) it.notes else null
                     rows.add(
                         ChallanPrintRow(
                             sNo = nextSNo++,
-                            productName = it.productName.ifEmpty { productName },
-                            notes = cleanNote,
-                            imageUrl = it.imageUrl?.trim()?.ifEmpty { null },
+                            productName = it.productName.ifEmpty { grp.productName },
+                            notes = cleanNote(it.notes),
+                            imageUrl = cleanUrl(it.imageUrl),
                             meter = it.meter,
                             multiplier = multiplier,
                             isMatching = isMatching,
-                            cutMeter = it.cutMeter ?: if (multiplier > 1) (it.meter / multiplier) else null,
+                            cutMeter = cutOf(it) ?: if (multiplier > 1) it.meter / multiplier else null,
                             rate = it.price,
                             colorCount = 1
                         )
@@ -188,32 +178,17 @@ object ChallanDataProcessor {
             }
         }
 
-        // If items didn't have individual image_url set, fallback to orderImageUrls (matching web app OrderPrintSlip)
-        if (bottomImages.isEmpty() && orderImageUrls.isNotEmpty()) {
-            val rowUrls = rows.mapNotNull { it.imageUrl?.trim() }.toSet()
-            orderImageUrls.forEach { url ->
-                val trimmed = url.trim()
-                if (trimmed.isNotEmpty() && !seenBottomUrls.contains(trimmed) && !rowUrls.contains(trimmed)) {
-                    seenBottomUrls.add(trimmed)
-                    bottomImages.add(trimmed)
-                }
-            }
-            if (rows.size == 1 && rows[0].imageUrl == null && rows[0].notes == null) {
-                rows[0] = rows[0].copy(notes = "${orderImageUrls.size} Swatches Below")
-            }
+        // Rules 6 + 7: every order photo not already in a row joins the swatch grid.
+        val rowUrls = rows.mapNotNull { it.imageUrl }.toSet()
+        orderImageUrls.forEach { url ->
+            val u = cleanUrl(url)
+            if (u != null && u !in rowUrls) addSwatch(u)
         }
 
-        // Remaining attachments not shown in table rows or bottom swatches
-        val displayedUrls = mutableSetOf<String>()
-        displayedUrls.addAll(bottomImages)
-        rows.forEach { r -> r.imageUrl?.let { displayedUrls.add(it) } }
+        if (rows.size == 1 && rows[0].imageUrl == null && rows[0].notes == null && swatches.isNotEmpty()) {
+            rows[0] = rows[0].copy(notes = "${swatches.size} Swatches Below")
+        }
 
-        val remainingImages = orderImageUrls.filter { !displayedUrls.contains(it.trim()) }
-
-        return ChallanGroupedData(
-            rows = rows,
-            bottomImages = bottomImages,
-            remainingImages = remainingImages
-        )
+        return ChallanGroupedData(rows = rows, swatches = swatches)
     }
 }
