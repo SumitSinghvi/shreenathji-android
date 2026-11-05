@@ -136,6 +136,12 @@ class SalesRepositoryTest {
     }
 
     @Test
+    fun `getOrdersByRep returns all orders when viewAll permission set`() {
+        repository.getOrdersByRep("rep_123", viewAll = true)
+        verify { orderDao.getAllOrdersWithItems() }
+    }
+
+    @Test
     fun `getOrdersByRep filters by repId if staff is not admin`() {
         repository.getOrdersByRep("rep_123")
         verify { orderDao.getOrdersByRep("rep_123") }

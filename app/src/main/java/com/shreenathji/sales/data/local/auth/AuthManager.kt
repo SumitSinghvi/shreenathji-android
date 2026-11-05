@@ -11,7 +11,9 @@ data class StaffMember(
     val role: String = "Field Sales Rep",
     val pinCode: String = "0000",
     val phone: String? = null,
-    val orderPrefix: String? = null
+    val orderPrefix: String? = null,
+    /** Orders page shows every rep's orders (dashboard "All Orders (App)"). */
+    val canViewAllOrders: Boolean = false
 ) {
     val accessCode: String get() = pinCode
 

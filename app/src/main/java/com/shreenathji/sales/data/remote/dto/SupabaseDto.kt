@@ -7,7 +7,22 @@ data class StaffDto(
     val pin_code: String? = null,
     val phone: String? = null,
     val order_prefix: String? = null,
-    val is_active: Boolean = true
+    val is_active: Boolean = true,
+    val permissions: StaffPermissionsDto? = null
+) {
+    /** Office ticked "All Orders (App)" (or full admin) on the dashboard Team page. */
+    val canViewAllOrders: Boolean
+        get() = permissions?.full_admin_access == true ||
+            permissions?.view_permissions?.all_orders_app == true
+}
+
+data class StaffPermissionsDto(
+    val full_admin_access: Boolean? = null,
+    val view_permissions: StaffViewPermissionsDto? = null
+)
+
+data class StaffViewPermissionsDto(
+    val all_orders_app: Boolean? = null
 )
 
 data class PartyDto(

@@ -73,7 +73,8 @@ fun LicenseGateScreen(
                         role = result.staff.role,
                         pinCode = result.staff.pin_code ?: "0000",
                         phone = result.staff.phone,
-                        orderPrefix = result.staff.order_prefix
+                        orderPrefix = result.staff.order_prefix,
+                        canViewAllOrders = result.staff.canViewAllOrders
                     )
                     authManager.saveActiveLicense(cleanKey, staff)
                     val authOk = supabaseClient.ensureAuthenticatedSession()

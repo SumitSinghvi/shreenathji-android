@@ -17,8 +17,13 @@ class OrderHistoryViewModel(
 
     val currentStaff = authManager.getCurrentStaff()
 
+    // Login snapshot can be stale; synced staff list carries the latest dashboard toggle.
+    private val canViewAllOrders: Boolean =
+        authManager.getAllStaff().find { it.id == currentStaff?.id }?.canViewAllOrders
+            ?: (currentStaff?.canViewAllOrders == true)
+
     val orders: StateFlow<List<OrderWithItems>> = repository
-        .getOrdersByRep(currentStaff?.id)
+        .getOrdersByRep(currentStaff?.id, canViewAllOrders)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

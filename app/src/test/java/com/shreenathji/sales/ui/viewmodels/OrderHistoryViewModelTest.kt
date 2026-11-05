@@ -66,6 +66,16 @@ class OrderHistoryViewModelTest {
     }
 
     @Test
+    fun `staff with view-all permission in synced list queries all orders`() = runTest {
+        every { authManager.getAllStaff() } returns listOf(sampleStaff.copy(canViewAllOrders = true))
+        every { repository.getOrdersByRep("staff_42", true) } returns flowOf(sampleOrderWithItems)
+
+        OrderHistoryViewModel(repository, authManager)
+
+        verify { repository.getOrdersByRep("staff_42", true) }
+    }
+
+    @Test
     fun `refreshOrders triggers cloud sync`() = runTest {
         val viewModel = OrderHistoryViewModel(repository, authManager)
 

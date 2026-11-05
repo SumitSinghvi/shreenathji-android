@@ -79,8 +79,8 @@ class SalesRepository(
     // Orders
     val allOrders: Flow<List<OrderWithItems>> = orderDao.getAllOrdersWithItems()
 
-    fun getOrdersByRep(repId: String?): Flow<List<OrderWithItems>> {
-        return if (repId.isNullOrBlank() || repId == "staff_admin") {
+    fun getOrdersByRep(repId: String?, viewAll: Boolean = false): Flow<List<OrderWithItems>> {
+        return if (viewAll || repId.isNullOrBlank() || repId == "staff_admin") {
             orderDao.getAllOrdersWithItems()
         } else {
             orderDao.getOrdersByRep(repId)

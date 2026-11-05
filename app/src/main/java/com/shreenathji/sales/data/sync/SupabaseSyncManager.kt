@@ -127,7 +127,8 @@ class SupabaseSyncManager(
                             role = it.role,
                             pinCode = it.pin_code ?: "0000",
                             phone = it.phone,
-                            orderPrefix = it.order_prefix
+                            orderPrefix = it.order_prefix,
+                            canViewAllOrders = it.canViewAllOrders
                         )
                     }
                     authManager.updateStaffList(staffList)

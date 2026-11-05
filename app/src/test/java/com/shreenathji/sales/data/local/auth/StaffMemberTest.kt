@@ -6,6 +6,18 @@ import org.junit.Test
 class StaffMemberTest {
 
     @Test
+    fun `StaffDto reads All Orders App permission from Supabase json`() {
+        val gson = com.google.gson.Gson()
+        fun parse(json: String) =
+            gson.fromJson(json, com.shreenathji.sales.data.remote.dto.StaffDto::class.java)
+        val base = "\"id\":\"s1\",\"name\":\"SUMIT\",\"role\":\"Sales\""
+        assertEquals(true, parse("{$base,\"permissions\":{\"view_permissions\":{\"all_orders_app\":true}}}").canViewAllOrders)
+        assertEquals(true, parse("{$base,\"permissions\":{\"full_admin_access\":true}}").canViewAllOrders)
+        assertEquals(false, parse("{$base,\"permissions\":{\"view_permissions\":{\"orders\":true}}}").canViewAllOrders)
+        assertEquals(false, parse("{$base,\"permissions\":null}").canViewAllOrders)
+    }
+
+    @Test
     fun `prefix should use custom orderPrefix when provided`() {
         val staff = StaffMember(
             id = "1",
