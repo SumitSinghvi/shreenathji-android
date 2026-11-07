@@ -343,7 +343,8 @@ class SupabaseSyncManager(
                         planId = plan.id,
                         status = plan.status,
                         visitedAt = isoDate,
-                        orderId = plan.orderId
+                        orderId = plan.orderId,
+                        remarks = plan.remarks
                     )
                     if (updateSuccess) {
                         dailyVisitPlanDao.markPlanAsSynced(plan.id)
@@ -391,7 +392,8 @@ class SupabaseSyncManager(
                     planId = plan.id,
                     status = plan.status,
                     visitedAt = isoDate,
-                    orderId = plan.orderId
+                    orderId = plan.orderId,
+                    remarks = plan.remarks
                 )
                 if (updateSuccess) {
                     dailyVisitPlanDao.markPlanAsSynced(plan.id)

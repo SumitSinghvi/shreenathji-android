@@ -24,8 +24,9 @@ interface LocationDao {
     @Query("SELECT * FROM location_logs ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestLocation(): LocationLogEntity?
 
-    @Query("DELETE FROM location_logs WHERE timestamp < :cutoffMillis")
-    suspend fun pruneOldLocations(cutoffMillis: Long): Int
+    /** Synced logs go after [cutoffMillis]; unsynced ones are kept until [unsyncedCutoffMillis]. */
+    @Query("DELETE FROM location_logs WHERE (isSynced = 1 AND timestamp < :cutoffMillis) OR timestamp < :unsyncedCutoffMillis")
+    suspend fun pruneOldLocations(cutoffMillis: Long, unsyncedCutoffMillis: Long): Int
 
     @Query("DELETE FROM location_logs")
     suspend fun clearAllLocations()

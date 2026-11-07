@@ -44,10 +44,15 @@ interface DailyVisitPlanDao {
     @Query("DELETE FROM daily_visit_plans")
     suspend fun clearAllPlans()
 
+    @Query("SELECT id FROM daily_visit_plans WHERE isSynced = 0")
+    suspend fun getUnsyncedPlanIds(): List<String>
+
+    /** Replace synced plans with the server copy; never overwrite a local change not yet pushed. */
     @Transaction
     suspend fun syncReplacePlans(plans: List<DailyVisitPlanEntity>) {
         clearSyncedPlans()
-        insertPlans(plans)
+        val pending = getUnsyncedPlanIds().toHashSet()
+        insertPlans(if (pending.isEmpty()) plans else plans.filter { it.id !in pending })
     }
 
     @Query("SELECT * FROM daily_visit_plans WHERE id = :id LIMIT 1")

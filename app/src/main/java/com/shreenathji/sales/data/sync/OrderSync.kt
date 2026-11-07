@@ -143,15 +143,24 @@ internal class OrderSync(
         return items.map { item ->
             val local = item.imageUrl ?: return@map item
             val remote = uriToRemote[local] ?: return@map item
-            if (remote == local) item else item.copy(imageUrl = remote)
+            when {
+                remote.isEmpty() -> item.copy(imageUrl = null) // local file gone
+                remote == local -> item
+                else -> item.copy(imageUrl = remote)
+            }
         }
     }
 
+    /**
+     * Uploads every local photo. Returns null if any local photo could not be uploaded, so the
+     * order stays unsynced and is retried — pushing it anyway would store device-only file:// URIs.
+     */
     private suspend fun uploadAndRemap(
         order: OrderEntity,
         items: List<OrderItemEntity>
-    ): Pair<List<String>, List<OrderItemEntity>> {
+    ): Pair<List<String>, List<OrderItemEntity>>? {
         val mapped = linkedMapOf<String, String>()
+        var allUploaded = true
         if (!order.imageUrisJson.isNullOrBlank()) {
             try {
                 val type = object : TypeToken<List<String>>() {}.type
@@ -174,9 +183,19 @@ internal class OrderSync(
                             val uploadedUrl = supabaseClient.uploadOrderImage(bytes, order.orderNumber)
                             if (!uploadedUrl.isNullOrBlank()) {
                                 mapped[uriStr] = uploadedUrl
+                            } else {
+                                allUploaded = false
                             }
+                        } else {
+                            allUploaded = false
                         }
+                    } catch (gone: java.io.FileNotFoundException) {
+                        // File no longer on the device: it can never upload, so drop it rather
+                        // than block the order forever.
+                        mapped[uriStr] = ""
+                        Log.w("SupabaseSync", "Swatch image $uriStr missing on device — dropped")
                     } catch (imgErr: Exception) {
+                        allUploaded = false
                         Log.e("SupabaseSync", "Failed to upload swatch image $uriStr: ${imgErr.message}")
                     }
                 }
@@ -184,100 +203,90 @@ internal class OrderSync(
                 Log.e("SupabaseSync", "Error parsing imageUrisJson: ${e.message}")
             }
         }
-        return mapped.values.toList() to remapItemImageUrls(items, mapped)
+        // Item photos are mirrored into imageUrisJson at submit; any item still pointing at a
+        // local URI after remap means its upload is missing.
+        val remapped = remapItemImageUrls(items, mapped)
+        val localLeft = remapped.any { item ->
+            val s = item.imageUrl?.let { Uri.parse(it).scheme?.lowercase() }
+            item.imageUrl != null && s != "http" && s != "https"
+        }
+        if (!allUploaded || localLeft) {
+            Log.w("SupabaseSync", "Order ${order.orderNumber}: photo upload incomplete — keeping it queued")
+            return null
+        }
+        return mapped.values.filter { it.isNotEmpty() } to remapped
+    }
+
+    /** One order push at a time, so the create-time push and background sync never race on the same order. */
+    private val pushMutex = Mutex()
+
+    private suspend fun push(order: OrderEntity, items: List<OrderItemEntity>, urls: List<String>): Boolean =
+        supabaseClient.pushOrder(order = order, items = items, uploadedImageUrls = urls.ifEmpty { null })
+
+    /** Pushes one order (re-read from Room under the lock). Returns true once it is on the server. */
+    private suspend fun pushOneLocked(orderId: String): Boolean {
+        val fresh = orderDao.getOrderWithItemsById(orderId) ?: return true
+        if (fresh.order.isSynced) return true
+        var currentOrder = fresh.order
+        val (uploadedUrls, remappedItems) = uploadAndRemap(currentOrder, fresh.items) ?: return false
+
+        suspend fun attempt(): Boolean = try {
+            push(currentOrder, remappedItems, uploadedUrls)
+        } catch (conflict: com.shreenathji.sales.data.remote.api.OrderConflictException) {
+            Log.w("SupabaseSync", "Collision on orderNumber ${currentOrder.orderNumber}, regenerating...")
+            val prefix = currentOrder.orderNumber.substringBefore("-", "ST")
+            val newNumber = "$prefix-${100000 + kotlin.random.Random.nextInt(900000)}"
+            orderDao.updateOrderNumber(currentOrder.id, newNumber)
+            currentOrder = currentOrder.copy(orderNumber = newNumber)
+            push(currentOrder, remappedItems, uploadedUrls)
+        }
+
+        var success = attempt()
+        if (!success) {
+            kotlinx.coroutines.delay(1000)
+            success = attempt()
+        }
+        if (success) {
+            orderDao.markOrderAsSynced(currentOrder.id)
+            Log.d("SupabaseSync", "Order ${currentOrder.orderNumber} synced to Supabase with ${uploadedUrls.size} images")
+        } else {
+            Log.w("SupabaseSync", "Order ${currentOrder.orderNumber} sync failed — will retry on next sync")
+        }
+        return success
     }
 
     suspend fun syncPendingOrders() {
         try {
             supabaseClient.ensureAuthenticatedSession()
-            val unsynced = orderDao.getUnsyncedOrders()
-            if (unsynced.isEmpty()) return
-            Log.d("SupabaseSync", "Pushing ${unsynced.size} unsynced orders to Supabase")
-            unsynced.forEach { orderWithItems ->
-              // Per-order isolation: one order failing (e.g. repeated number conflict) must not skip the rest.
-              try {
-                var currentOrder = orderWithItems.order
-                val (uploadedUrls, remappedItems) = uploadAndRemap(currentOrder, orderWithItems.items)
-
-                var success: Boolean
-                try {
-                    success = supabaseClient.pushOrder(
-                        order = currentOrder,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                } catch (conflict: com.shreenathji.sales.data.remote.api.OrderConflictException) {
-                    Log.w("SupabaseSync", "Collision on orderNumber ${currentOrder.orderNumber}, regenerating...")
-                    val prefix = currentOrder.orderNumber.substringBefore("-", "ST")
-                    val newNumber = "$prefix-${100000 + kotlin.random.Random.nextInt(900000)}"
-                    orderDao.updateOrderNumber(currentOrder.id, newNumber)
-                    currentOrder = currentOrder.copy(orderNumber = newNumber)
-                    success = supabaseClient.pushOrder(
-                        order = currentOrder,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                }
-                if (!success) {
-                    kotlinx.coroutines.delay(1000)
+            pushMutex.withLock {
+                val unsynced = orderDao.getUnsyncedOrders()
+                if (unsynced.isEmpty()) return
+                Log.d("SupabaseSync", "Pushing ${unsynced.size} unsynced orders to Supabase")
+                unsynced.forEach { orderWithItems ->
+                    // Per-order isolation: one order failing must not skip the rest.
                     try {
-                        success = supabaseClient.pushOrder(
-                            order = currentOrder,
-                            items = remappedItems,
-                            uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                        )
-                    } catch (conflict: com.shreenathji.sales.data.remote.api.OrderConflictException) {
-                        val prefix = currentOrder.orderNumber.substringBefore("-", "ST")
-                        val newNumber = "$prefix-${100000 + kotlin.random.Random.nextInt(900000)}"
-                        orderDao.updateOrderNumber(currentOrder.id, newNumber)
-                        currentOrder = currentOrder.copy(orderNumber = newNumber)
-                        success = supabaseClient.pushOrder(
-                            order = currentOrder,
-                            items = remappedItems,
-                            uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                        )
+                        pushOneLocked(orderWithItems.order.id)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w("SupabaseSync", "Order ${orderWithItems.order.orderNumber} sync errored — will retry on next sync: ${e.message}")
                     }
                 }
-                if (success) {
-                    orderDao.markOrderAsSynced(currentOrder.id)
-                    Log.d("SupabaseSync", "Order ${currentOrder.orderNumber} synced to Supabase with ${uploadedUrls.size} images")
-                } else {
-                    Log.w("SupabaseSync", "Order ${currentOrder.orderNumber} sync failed — will retry on next sync")
-                }
-              } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-              } catch (e: Exception) {
-                Log.w("SupabaseSync", "Order ${orderWithItems.order.orderNumber} sync errored — will retry on next sync: ${e.message}")
-              }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e("SupabaseSync", "Error syncing pending orders: ${e.message}", e)
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun pushOrderAsync(order: OrderEntity, items: List<OrderItemEntity>) {
         scope.launch {
             try {
-                val (uploadedUrls, remappedItems) = uploadAndRemap(order, items)
-                var success = supabaseClient.pushOrder(
-                    order = order,
-                    items = remappedItems,
-                    uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                )
-                if (!success) {
-                    kotlinx.coroutines.delay(1000)
-                    success = supabaseClient.pushOrder(
-                        order = order,
-                        items = remappedItems,
-                        uploadedImageUrls = uploadedUrls.ifEmpty { null }
-                    )
-                }
-                if (success) {
-                    orderDao.markOrderAsSynced(order.id)
-                    Log.d("SupabaseSync", "Order ${order.orderNumber} pushed live to Supabase with ${uploadedUrls.size} images")
-                } else {
-                    Log.w("SupabaseSync", "Order ${order.orderNumber} live push failed — retained locally (isSynced=0) for background sync")
-                }
+                pushMutex.withLock { pushOneLocked(order.id) }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("SupabaseSync", "Exception in pushOrderAsync: ${e.message}", e)
             }

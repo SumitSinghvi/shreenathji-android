@@ -62,9 +62,14 @@ internal class LocationSync(
      */
     suspend fun syncPendingLocations() = locationMutex.withLock {
         try {
-            // Prune old logs (>48h) to prevent unbounded local DB growth
-            val cutoff = System.currentTimeMillis() - (48 * 3600 * 1000L)
-            locationDao.pruneOldLocations(cutoff)
+            // Prune synced logs >48h. Unsynced logs are kept so an offline trail still uploads.
+            // ponytail: unsynced capped at 14 days (~10k rows at 2-min pings) to bound DB growth;
+            // raise if reps stay offline longer.
+            val now = System.currentTimeMillis()
+            locationDao.pruneOldLocations(
+                cutoffMillis = now - (48 * 3600 * 1000L),
+                unsyncedCutoffMillis = now - (14 * 24 * 3600 * 1000L)
+            )
 
             val staff = authManager.getCurrentStaff()
             repeat(MAX_LOCATION_BATCHES_PER_RUN) {

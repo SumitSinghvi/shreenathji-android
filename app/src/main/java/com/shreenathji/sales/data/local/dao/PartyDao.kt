@@ -37,6 +37,9 @@ interface PartyDao {
     @Query("DELETE FROM parties WHERE id NOT IN (:ids) AND isSynced = 1")
     suspend fun deleteSyncedPartiesNotIn(ids: List<String>)
 
+    @Query("DELETE FROM parties WHERE isSynced = 1")
+    suspend fun clearSyncedParties()
+
     @Query("DELETE FROM parties WHERE id IN (:ids) AND isSynced = 1")
     suspend fun deleteSyncedPartiesByIds(ids: List<String>)
 

@@ -145,8 +145,20 @@ class OrdersApi(
                 }
             )
             val orderJson = gson.toJson(orderDto)
-            val orderReq = requestBuilder("orders", "POST", orderJson, true)
+            // Insert-or-ignore: a re-push (e.g. the first reply was lost) must never overwrite an
+            // order the office has since confirmed/edited/dispatched.
+            val orderReq = ignoreDuplicates(requestBuilder("orders?on_conflict=id", "POST", orderJson, false))
             val orderRes = client.newCall(orderReq).execute()
+
+            if (orderRes.isSuccessful) {
+                val inserted = orderRes.body?.string().orEmpty().trim()
+                if (inserted == "[]") {
+                    // Order already on the server. Complete if it has items; otherwise fill them in,
+                    // but never delete a header this call did not create.
+                    if (items.isEmpty() || serverHasItems(order.id)) return@withContext true
+                    return@withContext insertItems(order.id, items)
+                }
+            }
 
             if (!orderRes.isSuccessful) {
                 val errorBody = orderRes.body?.string().orEmpty()
@@ -158,54 +170,11 @@ class OrdersApi(
             }
             headerCommitted = true
 
-            // 2. Insert/Upsert Order Items
+            // 2. Insert Order Items
             if (items.isNotEmpty()) {
-                val itemDtos = items.map { item ->
-                    OrderItemDto(
-                        id = item.id,
-                        order_id = order.id,
-                        product_name = item.productName,
-                        meter = item.meter,
-                        price = item.price,
-                        total_price = item.totalPrice,
-                        notes = item.notes,
-                        design_id = item.designId,
-                        image_url = item.imageUrl,
-                        is_matching = item.isMatching,
-                        multiplier = item.multiplier,
-                        cut_meter = item.cutMeter,
-                        component = item.component,
-                        set_group_id = item.setGroupId
-                    )
-                }
-                val itemsJson = gson.toJson(itemDtos)
-                val itemsReq = requestBuilder("order_items", "POST", itemsJson, true)
-                val itemsRes = client.newCall(itemsReq).execute()
-                val itemsErrorBody = if (!itemsRes.isSuccessful) itemsRes.body?.string().orEmpty() else ""
-                itemsSuccessful = itemsRes.isSuccessful
-
-                // PostgREST schema cache can lag after adding design_id/image_url — retry without them.
-                if (!itemsSuccessful && isSchemaLagItemsError(itemsErrorBody)) {
-                    Log.w(
-                        "OrdersApi",
-                        "order_items insert failed with new columns; retrying without design_id/image_url: ${itemsRes.code}"
-                    )
-                    val fallbackDtos = itemDtos.map { it.copy(design_id = null, image_url = null) }
-                    val retryReq = requestBuilder("order_items", "POST", gson.toJson(fallbackDtos), true)
-                    val retryRes = client.newCall(retryReq).execute()
-                    itemsSuccessful = retryRes.isSuccessful
-                    if (!itemsSuccessful) {
-                        Log.e(
-                            "OrdersApi",
-                            "Failed to insert order items after schema-lag retry: ${retryRes.code} - ${retryRes.body?.string()}"
-                        )
-                    }
-                } else if (!itemsSuccessful) {
-                    Log.e("OrdersApi", "Failed to insert order items: ${itemsRes.code} - $itemsErrorBody")
-                }
-
+                itemsSuccessful = insertItems(order.id, items)
                 if (!itemsSuccessful) {
-                    // Avoid orphan orders (header saved, items missing) — mirror dashboard createOrder
+                    // Avoid orphan orders (header saved, items missing) — this call created the header.
                     deleteOrphanOrderHeader(order.id)
                     return@withContext false
                 }
@@ -250,6 +219,56 @@ class OrdersApi(
             }
             return@withContext false
         }
+    }
+
+    private fun ignoreDuplicates(req: Request): Request =
+        req.newBuilder().header("Prefer", "return=representation,resolution=ignore-duplicates").build()
+
+    private fun serverHasItems(orderId: String): Boolean {
+        val res = client.newCall(requestBuilder("order_items?order_id=eq.$orderId&select=id&limit=1", "GET", null, false)).execute()
+        if (!res.isSuccessful) throw java.io.IOException("order_items check failed: ${res.code}")
+        return res.body?.string().orEmpty().trim() != "[]"
+    }
+
+    /** Insert-or-ignore line items (safe to repeat). */
+    private fun insertItems(orderId: String, items: List<OrderItemEntity>): Boolean {
+        val itemDtos = items.map { item ->
+            OrderItemDto(
+                id = item.id,
+                order_id = orderId,
+                product_name = item.productName,
+                meter = item.meter,
+                price = item.price,
+                total_price = item.totalPrice,
+                notes = item.notes,
+                design_id = item.designId,
+                image_url = item.imageUrl,
+                is_matching = item.isMatching,
+                multiplier = item.multiplier,
+                cut_meter = item.cutMeter,
+                component = item.component,
+                set_group_id = item.setGroupId
+            )
+        }
+        val itemsRes = client.newCall(
+            ignoreDuplicates(requestBuilder("order_items?on_conflict=id", "POST", gson.toJson(itemDtos), false))
+        ).execute()
+        if (itemsRes.isSuccessful) return true
+        val itemsErrorBody = itemsRes.body?.string().orEmpty()
+
+        // PostgREST schema cache can lag after adding design_id/image_url — retry without them.
+        if (isSchemaLagItemsError(itemsErrorBody)) {
+            Log.w("OrdersApi", "order_items insert failed with new columns; retrying without design_id/image_url: ${itemsRes.code}")
+            val fallbackDtos = itemDtos.map { it.copy(design_id = null, image_url = null) }
+            val retryRes = client.newCall(
+                ignoreDuplicates(requestBuilder("order_items?on_conflict=id", "POST", gson.toJson(fallbackDtos), false))
+            ).execute()
+            if (retryRes.isSuccessful) return true
+            Log.e("OrdersApi", "Failed to insert order items after schema-lag retry: ${retryRes.code} - ${retryRes.body?.string()}")
+            return false
+        }
+        Log.e("OrdersApi", "Failed to insert order items: ${itemsRes.code} - $itemsErrorBody")
+        return false
     }
 
     /** Best-effort delete of a cloud order header when items failed after header upsert. CASCADE removes items. */

@@ -64,19 +64,24 @@ class LicenseSessionGuard(
     }
 
     private suspend fun wipeLocalSession() {
+        // Clear cached server data, but keep work not yet uploaded (orders, visits, new stores):
+        // a license reset by the office must not destroy field orders. They upload after the
+        // device is activated again (orders carry their own sales_rep_id).
+        // Location logs are dropped: they are tagged with whoever is signed in at upload time.
         try {
-            database.clearAllTables()
+            database.productDao().clearAllProducts()
+            database.designDao().clearAllDesigns()
+            database.designFolderDao().clearAllFolders()
+            database.locationDao().clearAllLocations()
+            database.orderDao().clearSyncedOrderItems()
+            database.orderDao().clearSyncedOrders()
+            database.dailyVisitPlanDao().clearSyncedPlans()
+            database.partyDao().clearSyncedParties()
+            // Delta cursors must reset with the tables, or the next sync pulls only changes
+            // into empty tables.
+            context.getSharedPreferences("sync_cursors", Context.MODE_PRIVATE).edit().clear().apply()
         } catch (e: Exception) {
-            Log.e(TAG, "clearAllTables failed, falling back to DAO clears: ${e.message}", e)
-            try {
-                database.partyDao().clearAllParties()
-                database.productDao().clearAllProducts()
-                database.orderDao().wipeAllOrders()
-                database.locationDao().clearAllLocations()
-                database.dailyVisitPlanDao().clearAllPlans()
-            } catch (inner: Exception) {
-                Log.e(TAG, "DAO wipe failed: ${inner.message}", inner)
-            }
+            Log.e(TAG, "Local wipe failed: ${e.message}", e)
         }
 
         authManager.clearLicense()
