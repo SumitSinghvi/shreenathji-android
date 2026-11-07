@@ -29,14 +29,18 @@ class OrderSyncTest {
     private val dao = mockk<OrderDao>(relaxed = true)
     private lateinit var sync: OrderSync
 
+    /** Orders by id, so the per-order re-read in OrderSync finds what the queue returned. */
+    private val byId = mutableMapOf<String, OrderWithItems>()
+
     private fun order(id: String, number: String = "NS-123456") = OrderWithItems(
         order = OrderEntity(id = id, orderNumber = number, partyId = "p1", partyName = "Party", totalAmount = 500.0),
         items = listOf(OrderItemEntity(id = "$id-i1", orderId = id, productName = "Rayon", meter = 10.0, price = 50.0, totalPrice = 500.0))
-    )
+    ).also { byId[id] = it }
 
     @Before
     fun setUp() {
         coEvery { client.ensureAuthenticatedSession() } returns true
+        coEvery { dao.getOrderWithItemsById(any()) } answers { byId[firstArg()] }
         sync = OrderSync(ApplicationProvider.getApplicationContext(), client, dao, TestScope())
     }
 
